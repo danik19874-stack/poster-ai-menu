@@ -1093,6 +1093,1163 @@ in this plan relying on unverified field names (flagged in the spec's
 
 ---
 
+### Task 10 (added 10.09.2026): OAuth authorization flow
+
+Added after Poster's own developer console confirmed marketplace apps must
+use oAuth, not a manually-pasted token (tracked since 10.09.2026 as a
+pre-publication requirement in the design spec). Field names below are
+verified live against `dev.joinposter.com/docs/v3/start/authApi` and
+`dev.joinposter.com/docs/v3/web/spots/getSpots` — not guessed.
+
+Poster's oAuth has no refresh token: `access_token` is valid 2 years and
+already comes back in the same `accountNumber:hash` shape the `poster_token`
+column already stores, so no schema change is needed for the token itself.
+What Poster's oAuth response does *not* include is a spot id — solved by
+calling `spots.getSpots` right after the token exchange and taking the first
+spot (MVP single-spot assumption, consistent with `getProducts`'s existing
+one). This resolves the open question from Task 3's revision — no separate
+"pick your spot" onboarding step is needed for MVP.
+
+**Files:**
+- Create: `lib/poster/oauth.ts`
+- Test: `lib/poster/oauth.test.ts`
+- Create: `lib/oauth/completeOAuthConnection.ts`
+- Test: `lib/oauth/completeOAuthConnection.test.ts`
+- Create: `app/api/oauth/start/route.ts`
+- Create: `app/api/oauth/callback/route.ts`
+- Create migration: `supabase/migrations/20260910130000_add_poster_account_number.sql`
+- Modify: `.env.local.example` (add `POSTER_APPLICATION_ID`, `POSTER_APPLICATION_SECRET`, `POSTER_OAUTH_REDIRECT_URI`)
+
+`lib/poster/oauth.ts` and `lib/oauth/completeOAuthConnection.ts` are two
+separate layers on purpose, mirroring the existing `lib/poster/client.ts` /
+`lib/orders/createTableOrder.ts` split: the first talks to Poster's raw API
+(mockable at the fetch boundary), the second is a small dependency-injected
+orchestration function that the two API routes call — this is what makes
+Task 8's route thin and testable, and the same shape is used here so the
+callback route doesn't accumulate untested business logic.
+
+- [ ] **Step 1: Write the failing tests for `lib/poster/oauth.ts`**
+
+Create `lib/poster/oauth.test.ts`:
+```typescript
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { exchangeOAuthCode, getSpots } from './oauth';
+import { PosterApiError } from './types';
+
+describe('exchangeOAuthCode', () => {
+  beforeEach(() => {
+    vi.stubEnv('POSTER_APPLICATION_ID', '5313');
+    vi.stubEnv('POSTER_APPLICATION_SECRET', 'test-secret');
+    vi.stubEnv('POSTER_OAUTH_REDIRECT_URI', 'http://localhost:3000/api/oauth/callback');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('posts form-data with application_id/secret/grant_type/redirect_uri/code and maps the response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: '687409:abc123', account_number: '687409' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await exchangeOAuthCode('mycafe', 'the-code');
+
+    expect(result).toEqual({ accessToken: '687409:abc123', accountNumber: '687409' });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://mycafe.joinposter.com/api/v2/auth/access_token');
+    expect(options.method).toBe('POST');
+    const body = options.body as URLSearchParams;
+    expect(body.get('application_id')).toBe('5313');
+    expect(body.get('application_secret')).toBe('test-secret');
+    expect(body.get('grant_type')).toBe('authorization_code');
+    expect(body.get('redirect_uri')).toBe('http://localhost:3000/api/oauth/callback');
+    expect(body.get('code')).toBe('the-code');
+  });
+
+  it('throws a clear error if required env vars are missing', async () => {
+    vi.stubEnv('POSTER_APPLICATION_SECRET', '');
+
+    await expect(exchangeOAuthCode('mycafe', 'the-code')).rejects.toThrow(
+      'POSTER_APPLICATION_SECRET',
+    );
+  });
+
+  it('throws PosterApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ error_message: 'Invalid code' }),
+      }),
+    );
+
+    await expect(exchangeOAuthCode('mycafe', 'bad-code')).rejects.toThrow(PosterApiError);
+  });
+
+  it('throws PosterApiError when the response is missing access_token or account_number', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ account_number: '687409' }) }),
+    );
+
+    await expect(exchangeOAuthCode('mycafe', 'the-code')).rejects.toThrow(PosterApiError);
+  });
+
+  it('wraps a network failure in PosterApiError with statusCode 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(exchangeOAuthCode('mycafe', 'the-code')).rejects.toMatchObject({
+      statusCode: 0,
+    });
+  });
+});
+
+describe('getSpots', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps spot_id/name/address, coercing a stringly-typed spot_id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            { spot_id: '1', name: 'Кафе на Полянке', address: 'Киев, ул. Б.Полянка 44' },
+            { spot_id: 2, name: 'Вторая точка', address: 'Алматы' },
+          ],
+        }),
+      }),
+    );
+
+    const spots = await getSpots('687409:abc123');
+
+    expect(spots).toEqual([
+      { spotId: 1, name: 'Кафе на Полянке', address: 'Киев, ул. Б.Полянка 44' },
+      { spotId: 2, name: 'Вторая точка', address: 'Алматы' },
+    ]);
+  });
+
+  it('throws PosterApiError when the response is not an array', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+    await expect(getSpots('tok')).rejects.toThrow(PosterApiError);
+  });
+
+  it('throws PosterApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }),
+    );
+
+    await expect(getSpots('bad-token')).rejects.toThrow(PosterApiError);
+  });
+
+  it('wraps a network failure in PosterApiError with statusCode 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(getSpots('tok')).rejects.toMatchObject({ statusCode: 0 });
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npx vitest run lib/poster/oauth.test.ts`
+Expected: FAIL — `Cannot find module './oauth'`
+
+- [ ] **Step 3: Write the minimal implementation**
+
+Create `lib/poster/oauth.ts`:
+```typescript
+import { PosterApiError } from './types';
+
+export interface PosterSpot {
+  spotId: number;
+  name: string;
+  address: string;
+}
+
+export interface ExchangeOAuthCodeResult {
+  accessToken: string;
+  accountNumber: string;
+}
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+export async function exchangeOAuthCode(
+  account: string,
+  code: string,
+): Promise<ExchangeOAuthCodeResult> {
+  const body = new URLSearchParams({
+    application_id: requireEnv('POSTER_APPLICATION_ID'),
+    application_secret: requireEnv('POSTER_APPLICATION_SECRET'),
+    grant_type: 'authorization_code',
+    redirect_uri: requireEnv('POSTER_OAUTH_REDIRECT_URI'),
+    code,
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(`https://${account}.joinposter.com/api/v2/auth/access_token`, {
+      method: 'POST',
+      body,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster OAuth token endpoint: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new PosterApiError(
+      errorBody?.error_message ??
+        `Poster OAuth token exchange failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const parsed = await response.json();
+  const accessToken = parsed?.access_token;
+  const accountNumber = parsed?.account_number;
+  if (
+    typeof accessToken !== 'string' ||
+    !accessToken ||
+    typeof accountNumber !== 'string' ||
+    !accountNumber
+  ) {
+    throw new PosterApiError(
+      'Poster OAuth token response missing access_token/account_number',
+      response.status,
+    );
+  }
+
+  return { accessToken, accountNumber };
+}
+
+export async function getSpots(token: string): Promise<PosterSpot[]> {
+  let response: Response;
+  try {
+    response = await fetch(`https://joinposter.com/api/spots.getSpots?token=${token}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster spots.getSpots: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    throw new PosterApiError(
+      `Poster spots.getSpots failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const parsed = await response.json();
+  const rawSpots = parsed?.response;
+  if (!Array.isArray(rawSpots)) {
+    throw new PosterApiError(
+      'Poster spots.getSpots returned an unexpected response shape',
+      response.status,
+    );
+  }
+
+  return rawSpots.map((raw) => {
+    const spotId = Number(raw?.spot_id);
+    if (!Number.isFinite(spotId)) {
+      throw new PosterApiError(
+        'Poster spots.getSpots returned a spot with no valid spot_id',
+        response.status,
+      );
+    }
+    return {
+      spotId,
+      name: String(raw?.name ?? ''),
+      address: String(raw?.address ?? ''),
+    };
+  });
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `npx vitest run lib/poster/oauth.test.ts`
+Expected: PASS (9 tests)
+
+- [ ] **Step 5: Write the failing tests for `lib/oauth/completeOAuthConnection.ts`**
+
+Create `lib/oauth/completeOAuthConnection.test.ts`:
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { completeOAuthConnection } from './completeOAuthConnection';
+
+describe('completeOAuthConnection', () => {
+  it('exchanges the code, fetches spots, and upserts the restaurant using the first spot', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: '687409:abc123', accountNumber: '687409' });
+    const getSpots = vi.fn().mockResolvedValue([
+      { spotId: 1, name: 'Кафе на Полянке', address: 'Киев' },
+      { spotId: 2, name: 'Вторая точка', address: 'Алматы' },
+    ]);
+    const upsertRestaurant = vi.fn().mockResolvedValue(undefined);
+
+    const result = await completeOAuthConnection(
+      { exchangeOAuthCode, getSpots, upsertRestaurant },
+      { account: 'mycafe', code: 'the-code' },
+    );
+
+    expect(exchangeOAuthCode).toHaveBeenCalledWith('mycafe', 'the-code');
+    expect(getSpots).toHaveBeenCalledWith('687409:abc123');
+    expect(upsertRestaurant).toHaveBeenCalledWith({
+      posterAccountNumber: '687409',
+      posterSpotId: 1,
+      posterToken: '687409:abc123',
+      name: 'Кафе на Полянке',
+    });
+    expect(result).toEqual({ restaurantName: 'Кафе на Полянке' });
+  });
+
+  it('throws without upserting when the account has no spots', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: 'tok', accountNumber: '687409' });
+    const getSpots = vi.fn().mockResolvedValue([]);
+    const upsertRestaurant = vi.fn();
+
+    await expect(
+      completeOAuthConnection(
+        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { account: 'mycafe', code: 'the-code' },
+      ),
+    ).rejects.toThrow('no spots');
+    expect(upsertRestaurant).not.toHaveBeenCalled();
+  });
+
+  it('propagates an exchangeOAuthCode failure without calling getSpots or upsertRestaurant', async () => {
+    const exchangeError = new Error('bad code');
+    const exchangeOAuthCode = vi.fn().mockRejectedValue(exchangeError);
+    const getSpots = vi.fn();
+    const upsertRestaurant = vi.fn();
+
+    await expect(
+      completeOAuthConnection(
+        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { account: 'mycafe', code: 'bad-code' },
+      ),
+    ).rejects.toThrow(exchangeError);
+    expect(getSpots).not.toHaveBeenCalled();
+    expect(upsertRestaurant).not.toHaveBeenCalled();
+  });
+
+  it('propagates a getSpots failure without calling upsertRestaurant', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: 'tok', accountNumber: '687409' });
+    const spotsError = new Error('spots lookup failed');
+    const getSpots = vi.fn().mockRejectedValue(spotsError);
+    const upsertRestaurant = vi.fn();
+
+    await expect(
+      completeOAuthConnection(
+        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { account: 'mycafe', code: 'the-code' },
+      ),
+    ).rejects.toThrow(spotsError);
+    expect(upsertRestaurant).not.toHaveBeenCalled();
+  });
+});
+```
+
+- [ ] **Step 6: Run the tests to verify they fail**
+
+Run: `npx vitest run lib/oauth/completeOAuthConnection.test.ts`
+Expected: FAIL — `Cannot find module './completeOAuthConnection'`
+
+- [ ] **Step 7: Write the minimal implementation**
+
+Create `lib/oauth/completeOAuthConnection.ts`:
+```typescript
+export interface OAuthConnectionDeps {
+  exchangeOAuthCode: (
+    account: string,
+    code: string,
+  ) => Promise<{ accessToken: string; accountNumber: string }>;
+  getSpots: (token: string) => Promise<{ spotId: number; name: string; address: string }[]>;
+  upsertRestaurant: (restaurant: {
+    posterAccountNumber: string;
+    posterSpotId: number;
+    posterToken: string;
+    name: string;
+  }) => Promise<void>;
+}
+
+export async function completeOAuthConnection(
+  deps: OAuthConnectionDeps,
+  args: { account: string; code: string },
+): Promise<{ restaurantName: string }> {
+  const { accessToken, accountNumber } = await deps.exchangeOAuthCode(args.account, args.code);
+  const spots = await deps.getSpots(accessToken);
+
+  if (spots.length === 0) {
+    throw new Error('This Poster account has no spots to connect');
+  }
+
+  const spot = spots[0];
+
+  await deps.upsertRestaurant({
+    posterAccountNumber: accountNumber,
+    posterSpotId: spot.spotId,
+    posterToken: accessToken,
+    name: spot.name,
+  });
+
+  return { restaurantName: spot.name };
+}
+```
+
+- [ ] **Step 8: Run the tests to verify they pass**
+
+Run: `npx vitest run lib/oauth/completeOAuthConnection.test.ts`
+Expected: PASS (4 tests)
+
+- [ ] **Step 9: Add the migration**
+
+Create `supabase/migrations/20260910130000_add_poster_account_number.sql`:
+```sql
+-- Add support for Poster oAuth-based onboarding.
+-- poster_account_number is the natural key for the oAuth callback's upsert:
+-- there is no restaurant row yet when the oAuth redirect arrives, so this
+-- is what we upsert on instead of our own generated id. Nullable because
+-- the pre-existing manual-token onboarding path never sets it.
+alter table restaurants
+  add column poster_account_number text unique;
+```
+
+- [ ] **Step 10: Wire the two Next.js routes (thin wrappers, no new logic to test)**
+
+Create `app/api/oauth/start/route.ts`:
+```typescript
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  const applicationId = process.env.POSTER_APPLICATION_ID;
+  const redirectUri = process.env.POSTER_OAUTH_REDIRECT_URI;
+
+  if (!applicationId || !redirectUri) {
+    return NextResponse.json(
+      {
+        error:
+          'OAuth is not configured (missing POSTER_APPLICATION_ID or POSTER_OAUTH_REDIRECT_URI)',
+      },
+      { status: 500 },
+    );
+  }
+
+  const authorizeUrl = new URL('https://joinposter.com/api/auth');
+  authorizeUrl.searchParams.set('application_id', applicationId);
+  authorizeUrl.searchParams.set('redirect_uri', redirectUri);
+  authorizeUrl.searchParams.set('response_type', 'code');
+
+  return NextResponse.redirect(authorizeUrl.toString());
+}
+```
+
+Create `app/api/oauth/callback/route.ts`:
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { completeOAuthConnection } from '@/lib/oauth/completeOAuthConnection';
+import { exchangeOAuthCode, getSpots } from '@/lib/poster/oauth';
+import { PosterApiError } from '@/lib/poster/types';
+
+export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get('code');
+  const account = request.nextUrl.searchParams.get('account');
+
+  if (!code || !account) {
+    return NextResponse.json(
+      { error: 'Missing code or account query parameter' },
+      { status: 400 },
+    );
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json(
+      { error: 'Server is misconfigured (missing Supabase credentials)' },
+      { status: 500 },
+    );
+  }
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  async function upsertRestaurant(restaurant: {
+    posterAccountNumber: string;
+    posterSpotId: number;
+    posterToken: string;
+    name: string;
+  }) {
+    const { error } = await supabase.from('restaurants').upsert(
+      {
+        poster_account_number: restaurant.posterAccountNumber,
+        poster_spot_id: restaurant.posterSpotId,
+        poster_token: restaurant.posterToken,
+        name: restaurant.name,
+      },
+      { onConflict: 'poster_account_number' },
+    );
+    if (error) {
+      throw new Error(`Failed to save restaurant after OAuth: ${error.message}`);
+    }
+  }
+
+  try {
+    const result = await completeOAuthConnection(
+      { exchangeOAuthCode, getSpots, upsertRestaurant },
+      { account, code },
+    );
+    return NextResponse.json({ connected: true, restaurantName: result.restaurantName });
+  } catch (error) {
+    if (error instanceof PosterApiError && error.statusCode === 0) {
+      return NextResponse.json(
+        { error: 'Could not reach Poster right now, please try again' },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 400 },
+    );
+  }
+}
+```
+
+- [ ] **Step 11: Add the new env vars to the example file**
+
+Modify `.env.local.example` — add:
+```
+POSTER_APPLICATION_ID=
+POSTER_APPLICATION_SECRET=
+POSTER_OAUTH_REDIRECT_URI=http://localhost:3000/api/oauth/callback
+```
+
+- [ ] **Step 12: Verify and commit**
+
+Run:
+1. `npx vitest run lib/poster/oauth.test.ts lib/oauth/completeOAuthConnection.test.ts` — must pass (13 tests)
+2. `npx tsc --noEmit` — must be clean
+3. `npx eslint lib/poster lib/oauth app/api/oauth` — must be clean
+
+```bash
+git add lib/poster/oauth.ts lib/poster/oauth.test.ts lib/oauth/completeOAuthConnection.ts lib/oauth/completeOAuthConnection.test.ts app/api/oauth/start/route.ts app/api/oauth/callback/route.ts supabase/migrations/20260910130000_add_poster_account_number.sql .env.local.example
+git commit -m "feat: add Poster oAuth authorization flow"
+```
+
+---
+
+### Task 11 (added 11.09.2026): Real per-dish ingredients (live-test finding)
+
+Found by connecting a real Poster account via the oAuth flow built in Task 10
+and calling the real `menu.getProducts`/`menu.getProduct` endpoints: our
+Task 4 implementation was wrong about where ingredient data lives. Verified
+live against `dev.joinposter.com/docs/v3/web/menu/getProduct` and real
+account data — not guessed.
+
+Real facts: `menu.getProducts` (the list endpoint) has **no** `ingredient_name`
+field and **no** `description` field at all — our old code silently produced
+`ingredients: null`/`ingredients_known: false` for every single product,
+always, regardless of real data. Poster's `type` field tells you what a
+product actually is: `1` = полуфабрикат (semi-finished component of a
+recipe, not a guest-orderable dish), `2` = тех.карта (a real dish with a
+recipe), `3` = товар (a plain retail item like bottled water — no recipe by
+design, not a data gap). Only `menu.getProduct` (singular, one call per
+product) returns a real `ingredients` array, and only for `type: 2`.
+
+Known, accepted limitation carried forward from this finding: an ingredient
+inside a tech card can itself be a полуфабрикат (`structure_type: 2`) with
+its own hidden sub-recipe (e.g. "Тесто для круассанов" might itself contain
+egg/gluten) — this level of nesting is not expanded. Documented in the spec,
+not fixed in this task.
+
+**Files:**
+- Modify: `lib/poster/types.ts`
+- Modify: `lib/poster/client.ts`
+- Modify: `lib/poster/client.test.ts`
+- Modify: `lib/menu/sync.ts`
+- Modify: `lib/menu/sync.test.ts`
+
+- [ ] **Step 1: Update types**
+
+In `lib/poster/types.ts`, replace the `PosterProduct` interface and add
+`PosterProductType`:
+```typescript
+/**
+ * Poster product types: 1 = полуфабрикат (semi-finished component, not a
+ * guest-orderable dish), 2 = тех.карта (a recipe/dish — the only type that
+ * carries a real ingredient breakdown, and only via getProduct, not
+ * getProducts), 3 = товар (a plain retail item, e.g. bottled water — has no
+ * recipe by design, not a data gap).
+ */
+export type PosterProductType = 1 | 2 | 3;
+
+export interface PosterProduct {
+  productId: number;
+  name: string;
+  /**
+   * Poster's product-list endpoint (menu.getProducts) has no description
+   * field at all — always empty string from that source today. Left in the
+   * domain type for a future manual-entry path, not currently populated.
+   */
+  description: string;
+  /** Normalized to major currency units (e.g. tenge) — NOT Poster's raw minor-unit price. */
+  price: number;
+  type: PosterProductType;
+  inStopList: boolean;
+}
+```
+Remove the old `ingredients: PosterIngredientRef[] | null;` field from
+`PosterProduct` — keep the `PosterIngredientRef` interface itself, it's
+still used by `getProductIngredients`'s return type.
+
+- [ ] **Step 2: Write the failing tests for the reworked `getProducts` and new `getProductIngredients`**
+
+Replace the `describe('getProducts', ...)` block in `lib/poster/client.test.ts`
+with:
+```typescript
+describe('getProducts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps Poster product fields into our PosterProduct shape, including type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              price: { '1': '420000' },
+              type: '2',
+              hidden: '0',
+            },
+            {
+              product_id: '3',
+              product_name: 'Вода минеральная',
+              price: { '1': '100000' },
+              type: '3',
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    const products = await getProducts('test-token');
+
+    expect(products).toEqual([
+      {
+        productId: 169,
+        name: 'Стейк рибай',
+        description: '',
+        price: 4200,
+        type: 2,
+        inStopList: false,
+      },
+      {
+        productId: 3,
+        name: 'Вода минеральная',
+        description: '',
+        price: 1000,
+        type: 3,
+        inStopList: false,
+      },
+    ]);
+  });
+
+  it('throws PosterApiError instead of producing a NaN price when a product has no price at any spot', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              price: {},
+              type: '2',
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(getProducts('test-token')).rejects.toThrow(PosterApiError);
+  });
+
+  it('throws PosterApiError when a product has an unrecognized type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              price: { '1': '420000' },
+              type: '9',
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(getProducts('test-token')).rejects.toThrow(PosterApiError);
+  });
+});
+
+describe('getProductIngredients', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps a тех.карта response ingredients array to PosterIngredientRef[]', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: {
+          ingredients: [{ ingredient_name: 'Вода' }, { ingredient_name: 'Кофе' }],
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ingredients = await getProductIngredients('test-token', 3);
+
+    expect(ingredients).toEqual([{ name: 'Вода' }, { name: 'Кофе' }]);
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://joinposter.com/api/menu.getProduct?token=test-token&product_id=3');
+  });
+
+  it('returns an empty array for a товар with no ingredients field at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ response: {} }) }),
+    );
+
+    const ingredients = await getProductIngredients('test-token', 1);
+
+    expect(ingredients).toEqual([]);
+  });
+
+  it('throws PosterApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({}) }),
+    );
+
+    await expect(getProductIngredients('test-token', 999)).rejects.toThrow(PosterApiError);
+  });
+
+  it('wraps a network failure in PosterApiError with statusCode 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(getProductIngredients('test-token', 1)).rejects.toMatchObject({
+      statusCode: 0,
+    });
+  });
+});
+```
+Update the import line at the top of the file to also import
+`getProductIngredients`:
+```typescript
+import { createIncomingOrder, getProducts, getProductIngredients } from './client';
+```
+
+- [ ] **Step 3: Run the tests to verify they fail**
+
+Run: `npx vitest run lib/poster/client.test.ts`
+Expected: FAIL — old assertions on `ingredients`/`description` no longer
+match, `getProductIngredients` is not exported yet.
+
+- [ ] **Step 4: Rewrite the implementation**
+
+Replace the entire contents of `lib/poster/client.ts` with:
+```typescript
+import type {
+  CreateIncomingOrderRequest,
+  CreateIncomingOrderResult,
+  PosterIngredientRef,
+  PosterProduct,
+  PosterProductType,
+} from './types';
+import { PosterApiError } from './types';
+
+const POSTER_BASE_URL = 'https://joinposter.com/api';
+
+interface RawPosterProduct {
+  product_id: string;
+  product_name: string;
+  price: Record<string, string>;
+  type: string;
+  hidden: string;
+}
+
+interface RawPosterIngredient {
+  ingredient_name: string;
+}
+
+interface RawPosterProductDetail {
+  ingredients?: RawPosterIngredient[];
+}
+
+export async function createIncomingOrder(
+  token: string,
+  order: CreateIncomingOrderRequest,
+): Promise<CreateIncomingOrderResult> {
+  const body = {
+    spot_id: order.spotId,
+    phone: order.phone,
+    skip_phone_validation: order.skipPhoneValidation,
+    service_mode: order.serviceMode,
+    comment: order.comment,
+    products: order.products.map((item) => ({
+      product_id: item.productId,
+      count: item.count,
+      ...(item.modificatorId !== undefined ? { modificator_id: item.modificatorId } : {}),
+    })),
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `${POSTER_BASE_URL}/incomingOrders.createIncomingOrder?token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new PosterApiError(
+      errorBody?.error?.message ?? `Poster API request failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const parsed = await response.json();
+  const incomingOrderId = Number(parsed?.response?.incoming_order_id);
+  const status = Number(parsed?.response?.status);
+  if (!Number.isFinite(incomingOrderId) || !Number.isFinite(status)) {
+    throw new PosterApiError(
+      'Poster returned an unexpected incoming order response shape',
+      response.status,
+    );
+  }
+
+  return { incomingOrderId, status };
+}
+
+export async function getProducts(token: string): Promise<PosterProduct[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    throw new PosterApiError(
+      `Poster API request failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const { response: rawProducts } = (await response.json()) as {
+    response: RawPosterProduct[];
+  };
+
+  return rawProducts.map((raw) => {
+    // MVP assumption: one Poster spot per restaurant — picks the first (lowest spot id) price.
+    // Revisit if a multi-spot account is ever onboarded.
+    const price = Number(Object.values(raw.price)[0]) / 100;
+    if (Number.isNaN(price)) {
+      throw new PosterApiError(`Product ${raw.product_id} has no price at any spot`, 0);
+    }
+
+    const type = Number(raw.type) as PosterProductType;
+    if (type !== 1 && type !== 2 && type !== 3) {
+      throw new PosterApiError(
+        `Product ${raw.product_id} has an unrecognized type: ${raw.type}`,
+        0,
+      );
+    }
+
+    return {
+      productId: Number(raw.product_id),
+      name: raw.product_name,
+      // menu.getProducts has no description field — see PosterProduct's doc comment.
+      description: '',
+      price,
+      type,
+      inStopList: raw.hidden === '1',
+    };
+  });
+}
+
+export async function getProductIngredients(
+  token: string,
+  productId: number,
+): Promise<PosterIngredientRef[]> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${POSTER_BASE_URL}/menu.getProduct?token=${token}&product_id=${productId}`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    throw new PosterApiError(
+      `Poster API request failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const { response: detail } = (await response.json()) as {
+    response: RawPosterProductDetail;
+  };
+
+  // Only тех.карта (recipe) products have an `ingredients` array at all —
+  // a товар (retail item) legitimately has none, that's not an error here.
+  if (!detail.ingredients) {
+    return [];
+  }
+
+  return detail.ingredients.map((raw) => ({ name: raw.ingredient_name }));
+}
+```
+
+- [ ] **Step 5: Run the tests to verify they pass**
+
+Run: `npx vitest run lib/poster/client.test.ts`
+Expected: PASS (9 tests: 6 for `createIncomingOrder`, 3 for `getProducts`, 4 for `getProductIngredients` — 13 total)
+
+- [ ] **Step 6: Write the failing tests for the reworked `syncMenu`**
+
+Replace the entire contents of `lib/menu/sync.test.ts` with:
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { syncMenu } from './sync';
+import type { PosterProduct } from '../poster/types';
+
+describe('syncMenu', () => {
+  it('fetches real ingredients for тех.карта items, marks товар items as not applicable, and skips полуфабрикаты', async () => {
+    const products: PosterProduct[] = [
+      {
+        productId: 1,
+        name: 'Полуфабрикат теста',
+        description: '',
+        price: 0,
+        type: 1,
+        inStopList: false,
+      },
+      {
+        productId: 3,
+        name: 'Капучино 250 мл',
+        description: '',
+        price: 300,
+        type: 2,
+        inStopList: false,
+      },
+      {
+        productId: 5,
+        name: 'Вода минеральная',
+        description: '',
+        price: 1000,
+        type: 3,
+        inStopList: false,
+      },
+    ];
+    const getProducts = vi.fn().mockResolvedValue(products);
+    const getProductIngredients = vi
+      .fn()
+      .mockResolvedValue([{ name: 'Кофе' }, { name: 'Молоко' }]);
+
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const supabase = { from: vi.fn().mockReturnValue({ upsert }) };
+
+    await syncMenu(
+      supabase as unknown as SupabaseClient,
+      { getProducts, getProductIngredients },
+      { restaurantId: 'r1', posterToken: 'tok' },
+    );
+
+    expect(getProductIngredients).toHaveBeenCalledTimes(1);
+    expect(getProductIngredients).toHaveBeenCalledWith('tok', 3);
+
+    const [rows] = upsert.mock.calls[0];
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual([
+      expect.objectContaining({
+        poster_product_id: 3,
+        ingredients: [{ name: 'Кофе' }, { name: 'Молоко' }],
+        ingredients_known: true,
+      }),
+      expect.objectContaining({
+        poster_product_id: 5,
+        ingredients: [],
+        ingredients_known: true,
+      }),
+    ]);
+  });
+
+  it('marks a тех.карта with an empty recipe as ingredients_known: false (nobody filled it in yet)', async () => {
+    const products: PosterProduct[] = [
+      {
+        productId: 3,
+        name: 'Блюдо без заполненного рецепта',
+        description: '',
+        price: 300,
+        type: 2,
+        inStopList: false,
+      },
+    ];
+    const getProducts = vi.fn().mockResolvedValue(products);
+    const getProductIngredients = vi.fn().mockResolvedValue([]);
+
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const supabase = { from: vi.fn().mockReturnValue({ upsert }) };
+
+    await syncMenu(
+      supabase as unknown as SupabaseClient,
+      { getProducts, getProductIngredients },
+      { restaurantId: 'r1', posterToken: 'tok' },
+    );
+
+    const [rows] = upsert.mock.calls[0];
+    expect(rows[0]).toEqual(expect.objectContaining({ ingredients: [], ingredients_known: false }));
+  });
+});
+```
+
+- [ ] **Step 7: Run the tests to verify they fail**
+
+Run: `npx vitest run lib/menu/sync.test.ts`
+Expected: FAIL — `syncMenu`'s current signature takes a single `getProducts`
+function, not a `{ getProducts, getProductIngredients }` object.
+
+- [ ] **Step 8: Rewrite the implementation**
+
+Replace the entire contents of `lib/menu/sync.ts` with:
+```typescript
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PosterIngredientRef, PosterProduct } from '../poster/types';
+
+type GetProductsFn = (token: string) => Promise<PosterProduct[]>;
+type GetProductIngredientsFn = (
+  token: string,
+  productId: number,
+) => Promise<PosterIngredientRef[]>;
+
+export async function syncMenu(
+  supabase: SupabaseClient,
+  deps: { getProducts: GetProductsFn; getProductIngredients: GetProductIngredientsFn },
+  args: { restaurantId: string; posterToken: string },
+): Promise<void> {
+  const products = await deps.getProducts(args.posterToken);
+
+  const rows = await Promise.all(
+    products
+      // полуфабрикаты — внутренние компоненты рецептов (например, тесто
+      // внутри круассана), не отдельные блюда, которые гость может заказать.
+      .filter((product) => product.type !== 1)
+      .map(async (product) => {
+        let ingredients: PosterIngredientRef[];
+        let ingredientsKnown: boolean;
+
+        if (product.type === 2) {
+          // тех.карта — реальное блюдо с рецептом. Список меню
+          // (menu.getProducts) состав не отдаёт вообще — только отдельный
+          // вызов menu.getProduct по каждому товару.
+          ingredients = await deps.getProductIngredients(args.posterToken, product.productId);
+          ingredientsKnown = ingredients.length > 0;
+        } else {
+          // товар (например, бутылка воды) — рецепта не предполагается по
+          // своей природе, это не пробел в данных, а нормальное состояние.
+          ingredients = [];
+          ingredientsKnown = true;
+        }
+
+        return {
+          restaurant_id: args.restaurantId,
+          poster_product_id: product.productId,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          ingredients,
+          ingredients_known: ingredientsKnown,
+          in_stop_list: product.inStopList,
+          updated_at: new Date().toISOString(),
+        };
+      }),
+  );
+
+  const { error } = await supabase
+    .from('menu_items')
+    .upsert(rows, { onConflict: 'restaurant_id,poster_product_id' });
+
+  if (error) {
+    throw new Error(`Failed to sync menu: ${error.message}`);
+  }
+}
+```
+
+- [ ] **Step 9: Run the tests to verify they pass**
+
+Run: `npx vitest run lib/menu/sync.test.ts`
+Expected: PASS (2 tests)
+
+- [ ] **Step 10: Verify and commit**
+
+Run:
+1. `npx vitest run` (full suite) — must all pass
+2. `npx tsc --noEmit` — must be clean
+3. `npx eslint lib/poster lib/menu` — must be clean
+
+```bash
+git add lib/poster/types.ts lib/poster/client.ts lib/poster/client.test.ts lib/menu/sync.ts lib/menu/sync.test.ts
+git commit -m "fix: fetch real per-dish ingredients via menu.getProduct (menu.getProducts has none)"
+```
+
+---
+
 ## What's next (not in this plan)
 
 - **Plan 2 — AI chat + guardrails**: structured per-dish JSON context built
