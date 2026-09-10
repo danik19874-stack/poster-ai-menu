@@ -17,9 +17,11 @@ server-side so the (future) guest-facing chat never calls Poster directly
 per request. All Poster tokens and Supabase service-role access stay
 server-side; the guest browser only ever talks to our own Next.js API.
 
-**Tech Stack:** Next.js 14 (App Router, TypeScript) · Supabase (Postgres,
-service-role client, server-only) · Vitest for tests · plain `fetch` for
-the Poster API (no SDK exists for it).
+**Tech Stack:** Next.js (App Router, TypeScript; Task 1 used
+`create-next-app@latest`, which resolved to Next 16.3.4 — treat any
+App Router specifics in later tasks as targeting that version, not 14)
+· Supabase (Postgres, service-role client, server-only) · Vitest for tests
+· plain `fetch` for the Poster API (no SDK exists for it).
 
 **Why this stack (owner didn't specify one):** Supabase matches what the
 owner's other project (Lumio/BuildBoard) already uses, so there's a working
