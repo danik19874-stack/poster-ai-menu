@@ -277,6 +277,28 @@ describe('getProductIngredients', () => {
     await expect(getProductIngredients('test-token', 999)).rejects.toThrow(PosterApiError);
   });
 
+  it('throws PosterApiError instead of crashing when response is null', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ response: null }) }),
+    );
+
+    await expect(getProductIngredients('test-token', 1)).rejects.toThrow(PosterApiError);
+  });
+
+  it('throws PosterApiError instead of crashing when ingredients is present but not an array', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: { ingredients: 'не-массив' } }),
+      }),
+    );
+
+    await expect(getProductIngredients('test-token', 1)).rejects.toThrow(PosterApiError);
+  });
+
   it('wraps a network failure in PosterApiError with statusCode 0', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 

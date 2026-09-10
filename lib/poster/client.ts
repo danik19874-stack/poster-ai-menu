@@ -53,6 +53,9 @@ export async function createIncomingOrder(
       },
     );
   } catch (err) {
+    // fetch itself threw (DNS failure, connection reset, timeout, ...) — Poster was never
+    // reached, so there is no HTTP status. Use 0 as a sentinel so callers can tell this apart
+    // from a real 4xx/5xx response from Poster.
     const message = err instanceof Error ? err.message : String(err);
     throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
   }
@@ -69,6 +72,9 @@ export async function createIncomingOrder(
   const incomingOrderId = Number(parsed?.response?.incoming_order_id);
   const status = Number(parsed?.response?.status);
   if (!Number.isFinite(incomingOrderId) || !Number.isFinite(status)) {
+    // Poster responded 2xx but the payload doesn't match the shape we rely on. Reuse the
+    // real (ok) HTTP status here since Poster did successfully respond — this is a contract
+    // mismatch, not a transport or rejection error, so it shouldn't be confused with either.
     throw new PosterApiError(
       'Poster returned an unexpected incoming order response shape',
       response.status,
@@ -147,15 +153,30 @@ export async function getProductIngredients(
     );
   }
 
-  const { response: detail } = (await response.json()) as {
-    response: RawPosterProductDetail;
-  };
+  const parsed = (await response.json()) as { response: unknown };
+  const detail = parsed.response;
+
+  if (detail === null || typeof detail !== 'object') {
+    throw new PosterApiError(
+      `Poster returned an unexpected product detail response shape for product ${productId}`,
+      response.status,
+    );
+  }
+
+  const rawIngredients = (detail as RawPosterProductDetail).ingredients;
 
   // Only тех.карта (recipe) products have an `ingredients` array at all —
   // a товар (retail item) legitimately has none, that's not an error here.
-  if (!detail.ingredients) {
+  if (rawIngredients === undefined) {
     return [];
   }
 
-  return detail.ingredients.map((raw) => ({ name: raw.ingredient_name }));
+  if (!Array.isArray(rawIngredients)) {
+    throw new PosterApiError(
+      `Poster returned a non-array ingredients field for product ${productId}`,
+      response.status,
+    );
+  }
+
+  return rawIngredients.map((raw) => ({ name: raw.ingredient_name }));
 }

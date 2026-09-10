@@ -7,6 +7,18 @@ type GetProductIngredientsFn = (
   productId: number,
 ) => Promise<PosterIngredientRef[]>;
 
+interface MenuItemRow {
+  restaurant_id: string;
+  poster_product_id: number;
+  name: string;
+  description: string;
+  price: number;
+  ingredients: PosterIngredientRef[];
+  ingredients_known: boolean;
+  in_stop_list: boolean;
+  updated_at: string;
+}
+
 export async function syncMenu(
   supabase: SupabaseClient,
   deps: { getProducts: GetProductsFn; getProductIngredients: GetProductIngredientsFn },
@@ -14,41 +26,68 @@ export async function syncMenu(
 ): Promise<void> {
   const products = await deps.getProducts(args.posterToken);
 
-  const rows = await Promise.all(
-    products
-      // полуфабрикаты — внутренние компоненты рецептов (например, тесто
-      // внутри круассана), не отдельные блюда, которые гость может заказать.
-      .filter((product) => product.type !== 1)
-      .map(async (product) => {
-        let ingredients: PosterIngredientRef[];
-        let ingredientsKnown: boolean;
+  const rows: MenuItemRow[] = [];
 
-        if (product.type === 2) {
-          // тех.карта — реальное блюдо с рецептом. Список меню
-          // (menu.getProducts) состав не отдаёт вообще — только отдельный
-          // вызов menu.getProduct по каждому товару.
-          ingredients = await deps.getProductIngredients(args.posterToken, product.productId);
-          ingredientsKnown = ingredients.length > 0;
-        } else {
-          // товар (например, бутылка воды) — рецепта не предполагается по
-          // своей природе, это не пробел в данных, а нормальное состояние.
-          ingredients = [];
-          ingredientsKnown = true;
-        }
+  // Sequential on purpose (not Promise.all): Poster does not document a safe
+  // concurrency limit for per-product menu.getProduct calls, and — more
+  // importantly — a single failing item (network blip, rate limit, a
+  // malformed response) must not take down the whole sync for a restaurant
+  // that can have 200+ dishes. Each product is handled in isolation below.
+  for (const product of products) {
+    // полуфабрикаты — внутренние компоненты рецептов (например, тесто
+    // внутри круассана), не отдельные блюда, которые гость может заказать.
+    if (product.type === 1) {
+      continue;
+    }
 
-        return {
-          restaurant_id: args.restaurantId,
-          poster_product_id: product.productId,
-          name: product.name,
-          description: product.description,
-          price: product.price,
-          ingredients,
-          ingredients_known: ingredientsKnown,
-          in_stop_list: product.inStopList,
-          updated_at: new Date().toISOString(),
-        };
-      }),
-  );
+    let ingredients: PosterIngredientRef[];
+    let ingredientsKnown: boolean;
+
+    if (product.type === 2) {
+      // тех.карта — реальное блюдо с рецептом. Список меню
+      // (menu.getProducts) состав не отдаёт вообще — только отдельный
+      // вызов menu.getProduct по каждому товару.
+      try {
+        ingredients = await deps.getProductIngredients(args.posterToken, product.productId);
+        ingredientsKnown = ingredients.length > 0;
+      } catch (err) {
+        // Do not let one bad product (network error, rate limit, malformed
+        // response) fail the entire menu sync — the other dishes may well
+        // have synced fine. Fall back to the same safe "not verified"
+        // default used for an empty recipe, and keep going.
+        console.error(
+          `syncMenu: failed to fetch ingredients for product ${product.productId} (${product.name}):`,
+          err,
+        );
+        ingredients = [];
+        ingredientsKnown = false;
+      }
+    } else {
+      // товар (например, бутылка воды или упакованный снек) — Poster не
+      // хранит состав для этой категории структурно, это категория учёта
+      // склада, а не пробел в данных, который можно было бы дозаполнить
+      // синком. Но это НЕ гарантия отсутствия аллергенов: у бутилированного
+      // смузи или упакованного снека вполне может быть реальный состав,
+      // которого просто нет в Poster. Поэтому ставим "не проверено", а не
+      // "проверено и пусто" — безопасное умолчание в сторону осторожности.
+      // Будущее улучшение: отдельное состояние "неприменимо" на уровне
+      // схемы, не в этой задаче.
+      ingredients = [];
+      ingredientsKnown = false;
+    }
+
+    rows.push({
+      restaurant_id: args.restaurantId,
+      poster_product_id: product.productId,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      ingredients,
+      ingredients_known: ingredientsKnown,
+      in_stop_list: product.inStopList,
+      updated_at: new Date().toISOString(),
+    });
+  }
 
   const { error } = await supabase
     .from('menu_items')
