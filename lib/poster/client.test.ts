@@ -140,4 +140,27 @@ describe('getProducts', () => {
     });
     expect(products[1].ingredients).toBeNull();
   });
+
+  it('throws PosterApiError instead of producing a NaN price when a product has no price at any spot', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              description: 'Сочный стейк',
+              price: {},
+              ingredient_name: ['говядина'],
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(getProducts('test-token')).rejects.toThrow(PosterApiError);
+  });
 });

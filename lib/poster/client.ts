@@ -50,6 +50,8 @@ export async function createOrder(
   return body as CreateOrderResponse;
 }
 
+// TODO(Task 9 — live API verification): harden like createOrder (network-error wrapping,
+// response-shape validation) once the real Poster response shape is confirmed.
 export async function getProducts(token: string): Promise<PosterProduct[]> {
   const response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
 
@@ -64,12 +66,24 @@ export async function getProducts(token: string): Promise<PosterProduct[]> {
     response: RawPosterProduct[];
   };
 
-  return rawProducts.map((raw) => ({
-    productId: Number(raw.product_id),
-    name: raw.product_name,
-    description: raw.description,
-    price: Number(Object.values(raw.price)[0]) / 100,
-    ingredients: raw.ingredient_name ? raw.ingredient_name.map((name) => ({ name })) : null,
-    inStopList: raw.hidden === '1',
-  }));
+  return rawProducts.map((raw) => {
+    // MVP assumption: one Poster spot per restaurant — picks the first (lowest spot id) price.
+    // Revisit if a multi-spot account is ever onboarded.
+    const price = Number(Object.values(raw.price)[0]) / 100;
+    if (Number.isNaN(price)) {
+      // Not a real HTTP response problem — this is a data-shape problem in an otherwise-ok
+      // response, so there's no genuine status code. Reuse the same 0 sentinel createOrder
+      // uses for its own "no real HTTP status applies" case, for consistency.
+      throw new PosterApiError(`Product ${raw.product_id} has no price at any spot`, 0);
+    }
+
+    return {
+      productId: Number(raw.product_id),
+      name: raw.product_name,
+      description: raw.description,
+      price,
+      ingredients: raw.ingredient_name ? raw.ingredient_name.map((name) => ({ name })) : null,
+      inStopList: raw.hidden === '1',
+    };
+  });
 }
