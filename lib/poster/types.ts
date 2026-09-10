@@ -20,6 +20,8 @@ export interface PosterProduct {
    * domain type for a future manual-entry path, not currently populated.
    */
   description: string;
+  /** Poster's free-text category name (e.g. "Кофе"). Null if Poster has no category set for this product. */
+  categoryName: string | null;
   /** Normalized to major currency units (e.g. tenge) — NOT Poster's raw minor-unit price. */
   price: number;
   type: PosterProductType;

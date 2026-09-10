@@ -12,6 +12,7 @@ interface MenuItemRow {
   poster_product_id: number;
   name: string;
   description: string;
+  category_name: string | null;
   price: number;
   ingredients: PosterIngredientRef[];
   ingredients_known: boolean;
@@ -82,6 +83,7 @@ export async function syncMenu(
       poster_product_id: product.productId,
       name: product.name,
       description: product.description,
+      category_name: product.categoryName,
       price: product.price,
       ingredients,
       ingredients_known: ingredientsKnown,

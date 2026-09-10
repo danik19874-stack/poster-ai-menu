@@ -155,6 +155,7 @@ describe('getProducts', () => {
               type: '2',
               hidden: '0',
               photo: '/upload/pos_cdb_1/menu/product_169.jpg',
+              category_name: 'Кофе',
             },
             {
               product_id: '3',
@@ -180,6 +181,7 @@ describe('getProducts', () => {
         type: 2,
         inStopList: false,
         photoUrl: 'https://joinposter.com/upload/pos_cdb_1/menu/product_169.jpg',
+        categoryName: 'Кофе',
       },
       {
         productId: 3,
@@ -189,8 +191,35 @@ describe('getProducts', () => {
         type: 3,
         inStopList: false,
         photoUrl: null,
+        categoryName: null,
       },
     ]);
+  });
+
+  it('treats a missing or blank category_name as null', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '9',
+              product_name: 'Товар без категории',
+              category_name: '',
+              price: { '1': '50000' },
+              type: '3',
+              hidden: '0',
+              photo: '',
+            },
+          ],
+        }),
+      }),
+    );
+
+    const products = await getProducts('token');
+
+    expect(products[0].categoryName).toBeNull();
   });
 
   it('throws PosterApiError instead of producing a NaN price when a product has no price at any spot', async () => {

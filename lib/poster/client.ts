@@ -12,6 +12,7 @@ const POSTER_BASE_URL = 'https://joinposter.com/api';
 interface RawPosterProduct {
   product_id: string;
   product_name: string;
+  category_name: string;
   price: Record<string, string>;
   type: string;
   hidden: string;
@@ -127,6 +128,7 @@ export async function getProducts(token: string): Promise<PosterProduct[]> {
       name: raw.product_name,
       // menu.getProducts has no description field — see PosterProduct's doc comment.
       description: '',
+      categoryName: raw.category_name && raw.category_name.trim() ? raw.category_name : null,
       price,
       type,
       inStopList: raw.hidden === '1',
