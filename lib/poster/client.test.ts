@@ -53,4 +53,43 @@ describe('createOrder', () => {
       }),
     ).rejects.toThrow(PosterApiError);
   });
+
+  it('wraps a network failure (fetch rejecting) in a PosterApiError with status 0', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND joinposter.com')),
+    );
+
+    const promise = createOrder('test-token', {
+      spotId: 42,
+      tableId: 17,
+      serviceMode: 1,
+      autoAccept: true,
+      products: [{ productId: 169, count: 1 }],
+    });
+
+    await expect(promise).rejects.toThrow(PosterApiError);
+    await expect(promise).rejects.toMatchObject({ statusCode: 0 });
+  });
+
+  it('throws PosterApiError when a successful response has an unexpected shape', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: { status: 1 } }),
+      }),
+    );
+
+    await expect(
+      createOrder('test-token', {
+        spotId: 42,
+        tableId: 17,
+        serviceMode: 1,
+        autoAccept: true,
+        products: [{ productId: 169, count: 1 }],
+      }),
+    ).rejects.toThrow(PosterApiError);
+  });
 });
