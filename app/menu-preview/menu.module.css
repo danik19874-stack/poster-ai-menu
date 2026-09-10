@@ -139,9 +139,9 @@
 
 .price {
   font-variant-numeric: tabular-nums;
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--foreground);
+  color: var(--accent);
 }
 
 .badge {
