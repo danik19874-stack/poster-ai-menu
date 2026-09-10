@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireEnv } from '@/lib/poster/oauth';
 
 export async function GET() {
-  const applicationId = process.env.POSTER_APPLICATION_ID;
-  const redirectUri = process.env.POSTER_OAUTH_REDIRECT_URI;
-
-  if (!applicationId || !redirectUri) {
+  let applicationId: string;
+  let redirectUri: string;
+  try {
+    applicationId = requireEnv('POSTER_APPLICATION_ID');
+    redirectUri = requireEnv('POSTER_OAUTH_REDIRECT_URI');
+  } catch (error) {
+    console.error('OAuth start failed:', error);
     return NextResponse.json(
       {
         error:

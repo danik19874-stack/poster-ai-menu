@@ -23,6 +23,9 @@ export async function completeOAuthConnection(
     throw new Error('This Poster account has no spots to connect');
   }
 
+  // MVP assumption: one Poster spot per restaurant — connects the first spot Poster
+  // returns. For a multi-spot account this may not be the spot the owner meant to
+  // connect. Revisit if a multi-spot account is ever onboarded via oAuth.
   const spot = spots[0];
 
   await deps.upsertRestaurant({

@@ -11,7 +11,7 @@ export interface ExchangeOAuthCodeResult {
   accountNumber: string;
 }
 
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
@@ -19,10 +19,22 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// Poster account subdomains are alphanumeric-with-hyphens (the "mycafe" in
+// mycafe.joinposter.com). This route is reachable via a plain unauthenticated
+// GET (see app/api/oauth/callback/route.ts), so `account` is untrusted input
+// that gets interpolated straight into the fetch URL below — without this
+// check, a value like "attacker.test/x" would send our
+// POSTER_APPLICATION_SECRET to attacker.test instead of Poster.
+const POSTER_ACCOUNT_FORMAT = /^[a-z0-9][a-z0-9-]{0,62}$/i;
+
 export async function exchangeOAuthCode(
   account: string,
   code: string,
 ): Promise<ExchangeOAuthCodeResult> {
+  if (!POSTER_ACCOUNT_FORMAT.test(account)) {
+    throw new PosterApiError(`Invalid Poster account identifier: "${account}"`, 400);
+  }
+
   const body = new URLSearchParams({
     application_id: requireEnv('POSTER_APPLICATION_ID'),
     application_secret: requireEnv('POSTER_APPLICATION_SECRET'),

@@ -76,4 +76,22 @@ describe('completeOAuthConnection', () => {
     ).rejects.toThrow(spotsError);
     expect(upsertRestaurant).not.toHaveBeenCalled();
   });
+
+  it('propagates an upsertRestaurant failure', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: 'tok', accountNumber: '687409' });
+    const getSpots = vi
+      .fn()
+      .mockResolvedValue([{ spotId: 1, name: 'Кафе на Полянке', address: 'Киев' }]);
+    const upsertError = new Error('db write failed');
+    const upsertRestaurant = vi.fn().mockRejectedValue(upsertError);
+
+    await expect(
+      completeOAuthConnection(
+        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { account: 'mycafe', code: 'the-code' },
+      ),
+    ).rejects.toThrow(upsertError);
+  });
 });

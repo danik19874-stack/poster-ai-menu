@@ -41,7 +41,11 @@ export async function GET(request: NextRequest) {
       { onConflict: 'poster_account_number' },
     );
     if (error) {
-      throw new Error(`Failed to save restaurant after OAuth: ${error.message}`);
+      // Don't leak raw Postgres/Supabase error details (e.g. constraint names) to the
+      // caller — this route is reachable via an unauthenticated GET. Log the real error
+      // server-side and throw a generic message instead.
+      console.error('Failed to save restaurant after OAuth:', error);
+      throw new Error('Failed to save restaurant after OAuth');
     }
   }
 
@@ -53,11 +57,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ connected: true, restaurantName: result.restaurantName });
   } catch (error) {
     if (error instanceof PosterApiError && error.statusCode === 0) {
+      console.error('OAuth callback: could not reach Poster:', error);
       return NextResponse.json(
         { error: 'Could not reach Poster right now, please try again' },
         { status: 502 },
       );
     }
+    console.error('OAuth callback failed:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 400 },

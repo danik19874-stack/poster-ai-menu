@@ -72,6 +72,22 @@ describe('exchangeOAuthCode', () => {
       statusCode: 0,
     });
   });
+
+  it('rejects an invalid account format without calling fetch', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    for (const invalidAccount of ['attacker.test/x', 'evil.com', 'foo@bar', '']) {
+      await expect(exchangeOAuthCode(invalidAccount, 'the-code')).rejects.toThrow(PosterApiError);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid account format with statusCode 400', async () => {
+    await expect(exchangeOAuthCode('attacker.test/x', 'the-code')).rejects.toMatchObject({
+      statusCode: 400,
+    });
+  });
 });
 
 describe('getSpots', () => {
