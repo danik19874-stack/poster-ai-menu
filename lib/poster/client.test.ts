@@ -39,6 +39,50 @@ describe('createIncomingOrder', () => {
     expect(body.products).toEqual([{ product_id: 169, count: 2 }]);
   });
 
+  it('omits comment and skip_phone_validation from the wire body when not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: { incoming_order_id: 106, status: 0 },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createIncomingOrder('test-token', {
+      spotId: 42,
+      phone: '+70000000000',
+      serviceMode: 1,
+      products: [{ productId: 169, count: 1 }],
+    });
+
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body as string);
+    expect(body).not.toHaveProperty('comment');
+    expect(body).not.toHaveProperty('skip_phone_validation');
+    expect(body.products[0]).not.toHaveProperty('modificator_id');
+  });
+
+  it('coerces a stringly-typed incoming_order_id/status (older Poster endpoints return numbers as strings)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: { incoming_order_id: '106', status: '0' },
+        }),
+      }),
+    );
+
+    const result = await createIncomingOrder('test-token', {
+      spotId: 42,
+      phone: '+7',
+      serviceMode: 1,
+      products: [{ productId: 169, count: 1 }],
+    });
+
+    expect(result).toEqual({ incomingOrderId: 106, status: 0 });
+  });
+
   it('throws PosterApiError when Poster returns a non-ok response', async () => {
     vi.stubGlobal(
       'fetch',

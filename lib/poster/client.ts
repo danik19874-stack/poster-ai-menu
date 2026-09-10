@@ -60,8 +60,14 @@ export async function createIncomingOrder(
   }
 
   const parsed = await response.json();
-  const incomingOrderId = parsed?.response?.incoming_order_id;
-  if (typeof incomingOrderId !== 'number') {
+  // TODO(Task 9 — live API verification): incomingOrders is an older-style Poster endpoint
+  // like menu.getProducts, which is known to return numeric fields as strings (product_id,
+  // hidden). incoming_order_id/status may do the same — coerce via Number() rather than a
+  // strict typeof check, so a stringly-typed but otherwise-valid response doesn't make us
+  // falsely report a real, successfully-placed order as failed.
+  const incomingOrderId = Number(parsed?.response?.incoming_order_id);
+  const status = Number(parsed?.response?.status);
+  if (!Number.isFinite(incomingOrderId) || !Number.isFinite(status)) {
     // Poster responded 2xx but the payload doesn't match the shape we rely on. Reuse the
     // real (ok) HTTP status here since Poster did successfully respond — this is a contract
     // mismatch, not a transport or rejection error, so it shouldn't be confused with either.
@@ -71,10 +77,7 @@ export async function createIncomingOrder(
     );
   }
 
-  return {
-    incomingOrderId,
-    status: parsed.response.status,
-  };
+  return { incomingOrderId, status };
 }
 
 // TODO(Task 9 — live API verification): harden like createIncomingOrder (network-error wrapping,
