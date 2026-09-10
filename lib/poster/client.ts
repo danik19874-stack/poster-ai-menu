@@ -1,4 +1,8 @@
-import type { CreateOrderRequest, CreateOrderResponse, PosterProduct } from './types';
+import type {
+  CreateIncomingOrderRequest,
+  CreateIncomingOrderResult,
+  PosterProduct,
+} from './types';
 import { PosterApiError } from './types';
 
 const POSTER_BASE_URL = 'https://joinposter.com/api';
@@ -12,17 +16,33 @@ interface RawPosterProduct {
   hidden: string;
 }
 
-export async function createOrder(
+export async function createIncomingOrder(
   token: string,
-  order: CreateOrderRequest,
-): Promise<CreateOrderResponse> {
+  order: CreateIncomingOrderRequest,
+): Promise<CreateIncomingOrderResult> {
+  const body = {
+    spot_id: order.spotId,
+    phone: order.phone,
+    skip_phone_validation: order.skipPhoneValidation,
+    service_mode: order.serviceMode,
+    comment: order.comment,
+    products: order.products.map((item) => ({
+      product_id: item.productId,
+      count: item.count,
+      ...(item.modificatorId !== undefined ? { modificator_id: item.modificatorId } : {}),
+    })),
+  };
+
   let response: Response;
   try {
-    response = await fetch(`${POSTER_BASE_URL}/orders?token=${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order),
-    });
+    response = await fetch(
+      `${POSTER_BASE_URL}/incomingOrders.createIncomingOrder?token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
   } catch (err) {
     // fetch itself threw (DNS failure, connection reset, timeout, ...) — Poster was never
     // reached, so there is no HTTP status. Use 0 as a sentinel so callers can tell this apart
@@ -32,25 +52,32 @@ export async function createOrder(
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
+    const errorBody = await response.json().catch(() => ({}));
     throw new PosterApiError(
-      body?.error?.message ?? `Poster API request failed with status ${response.status}`,
+      errorBody?.error?.message ?? `Poster API request failed with status ${response.status}`,
       response.status,
     );
   }
 
-  const body = await response.json();
-  if (typeof body?.response?.id !== 'number') {
+  const parsed = await response.json();
+  const incomingOrderId = parsed?.response?.incoming_order_id;
+  if (typeof incomingOrderId !== 'number') {
     // Poster responded 2xx but the payload doesn't match the shape we rely on. Reuse the
     // real (ok) HTTP status here since Poster did successfully respond — this is a contract
     // mismatch, not a transport or rejection error, so it shouldn't be confused with either.
-    throw new PosterApiError('Poster returned an unexpected order response shape', response.status);
+    throw new PosterApiError(
+      'Poster returned an unexpected incoming order response shape',
+      response.status,
+    );
   }
 
-  return body as CreateOrderResponse;
+  return {
+    incomingOrderId,
+    status: parsed.response.status,
+  };
 }
 
-// TODO(Task 9 — live API verification): harden like createOrder (network-error wrapping,
+// TODO(Task 9 — live API verification): harden like createIncomingOrder (network-error wrapping,
 // response-shape validation) once the real Poster response shape is confirmed.
 export async function getProducts(token: string): Promise<PosterProduct[]> {
   const response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
@@ -72,7 +99,7 @@ export async function getProducts(token: string): Promise<PosterProduct[]> {
     const price = Number(Object.values(raw.price)[0]) / 100;
     if (Number.isNaN(price)) {
       // Not a real HTTP response problem — this is a data-shape problem in an otherwise-ok
-      // response, so there's no genuine status code. Reuse the same 0 sentinel createOrder
+      // response, so there's no genuine status code. Reuse the same 0 sentinel createIncomingOrder
       // uses for its own "no real HTTP status applies" case, for consistency.
       throw new PosterApiError(`Product ${raw.product_id} has no price at any spot`, 0);
     }

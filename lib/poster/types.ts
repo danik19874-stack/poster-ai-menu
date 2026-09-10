@@ -12,30 +12,30 @@ export interface PosterProduct {
   inStopList: boolean;
 }
 
-export interface CreateOrderItem {
+/** Poster's order service-mode codes: 1 = dine-in, 2 = takeout, 3 = delivery. */
+export type PosterServiceMode = 1 | 2 | 3;
+
+export interface CreateIncomingOrderItem {
   productId: number;
   count: number;
   modificatorId?: number;
 }
 
-/** Poster's order service-mode codes: 1 = dine-in, 2 = takeout, 3 = delivery. */
-export type PosterServiceMode = 1 | 2 | 3;
-
-export interface CreateOrderRequest {
+export interface CreateIncomingOrderRequest {
   spotId: number;
-  tableId: number;
+  /** Poster requires phone or client_id — see design spec for the placeholder-phone decision for anonymous QR guests. */
+  phone: string;
+  skipPhoneValidation?: boolean;
   serviceMode: PosterServiceMode;
-  autoAccept: boolean;
-  products: CreateOrderItem[];
+  /** Table number as free text — this endpoint has no structured table field. e.g. "Стол 7" */
+  comment?: string;
+  products: CreateIncomingOrderItem[];
 }
 
-export interface CreateOrderResponse {
-  response: {
-    id: number;
-    status: number;
-    spotId: number;
-    tableId: number;
-  };
+export interface CreateIncomingOrderResult {
+  incomingOrderId: number;
+  /** Poster's incoming-order status: 0 = new/pending staff confirmation, 1 = accepted, 7 = canceled. */
+  status: number;
 }
 
 export class PosterApiError extends Error {

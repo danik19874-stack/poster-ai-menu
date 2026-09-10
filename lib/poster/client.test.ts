@@ -1,36 +1,42 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createOrder, getProducts } from './client';
+import { createIncomingOrder, getProducts } from './client';
 import { PosterApiError } from './types';
 
-describe('createOrder', () => {
+describe('createIncomingOrder', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('sends tableId and autoAccept:true so the order lands on the kitchen without staff confirmation', async () => {
+  it('sends spot_id, phone, skip_phone_validation, service_mode, comment, and products in snake_case, and maps the response back to camelCase', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        response: { id: 156, status: 1, spotId: 42, tableId: 17 },
+        response: { incoming_order_id: 106, status: 0, spot_id: 42 },
       }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await createOrder('test-token', {
+    const result = await createIncomingOrder('test-token', {
       spotId: 42,
-      tableId: 17,
+      phone: '+70000000000',
+      skipPhoneValidation: true,
       serviceMode: 1,
-      autoAccept: true,
+      comment: 'Стол 7',
       products: [{ productId: 169, count: 2 }],
     });
 
-    expect(result.response.id).toBe(156);
+    expect(result).toEqual({ incomingOrderId: 106, status: 0 });
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://joinposter.com/api/orders?token=test-token');
+    expect(url).toBe(
+      'https://joinposter.com/api/incomingOrders.createIncomingOrder?token=test-token',
+    );
     const body = JSON.parse(options.body as string);
-    expect(body.tableId).toBe(17);
-    expect(body.autoAccept).toBe(true);
-    expect(body.serviceMode).toBe(1);
+    expect(body.spot_id).toBe(42);
+    expect(body.phone).toBe('+70000000000');
+    expect(body.skip_phone_validation).toBe(true);
+    expect(body.service_mode).toBe(1);
+    expect(body.comment).toBe('Стол 7');
+    expect(body.products).toEqual([{ product_id: 169, count: 2 }]);
   });
 
   it('throws PosterApiError when Poster returns a non-ok response', async () => {
@@ -39,58 +45,50 @@ describe('createOrder', () => {
       vi.fn().mockResolvedValue({
         ok: false,
         status: 400,
-        json: async () => ({ error: { message: 'Table not found' } }),
+        json: async () => ({ error: { message: 'Invalid phone' } }),
       }),
     );
 
     await expect(
-      createOrder('test-token', {
+      createIncomingOrder('test-token', {
         spotId: 42,
-        tableId: 999,
+        phone: '',
         serviceMode: 1,
-        autoAccept: true,
         products: [{ productId: 169, count: 1 }],
       }),
     ).rejects.toThrow(PosterApiError);
   });
 
-  it('wraps a network failure (fetch rejecting) in a PosterApiError with status 0', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND joinposter.com')),
-    );
-
-    const promise = createOrder('test-token', {
-      spotId: 42,
-      tableId: 17,
-      serviceMode: 1,
-      autoAccept: true,
-      products: [{ productId: 169, count: 1 }],
-    });
-
-    await expect(promise).rejects.toThrow(PosterApiError);
-    await expect(promise).rejects.toMatchObject({ statusCode: 0 });
-  });
-
-  it('throws PosterApiError when a successful response has an unexpected shape', async () => {
+  it('throws PosterApiError instead of returning a garbage result when the response is missing incoming_order_id', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        status: 200,
-        json: async () => ({ response: { status: 1 } }),
+        json: async () => ({ response: { status: 0 } }),
       }),
     );
 
     await expect(
-      createOrder('test-token', {
+      createIncomingOrder('test-token', {
         spotId: 42,
-        tableId: 17,
+        phone: '+7',
         serviceMode: 1,
-        autoAccept: true,
         products: [{ productId: 169, count: 1 }],
       }),
     ).rejects.toThrow(PosterApiError);
+  });
+
+  it('wraps a network failure (fetch rejecting) in PosterApiError with statusCode 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(
+      createIncomingOrder('test-token', {
+        spotId: 42,
+        phone: '+7',
+        serviceMode: 1,
+        products: [{ productId: 169, count: 1 }],
+      }),
+    ).rejects.toMatchObject({ statusCode: 0 });
   });
 });
 
