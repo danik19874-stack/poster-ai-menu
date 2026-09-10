@@ -6,6 +6,7 @@ export interface PosterProduct {
   productId: number;
   name: string;
   description: string;
+  /** Normalized to major currency units (e.g. tenge) — NOT Poster's raw minor-unit price. */
   price: number;
   ingredients: PosterIngredientRef[] | null;
   inStopList: boolean;
@@ -17,10 +18,13 @@ export interface CreateOrderItem {
   modificatorId?: number;
 }
 
+/** Poster's order service-mode codes: 1 = dine-in, 2 = takeout, 3 = delivery. */
+export type PosterServiceMode = 1 | 2 | 3;
+
 export interface CreateOrderRequest {
   spotId: number;
   tableId: number;
-  serviceMode: 1 | 2 | 3;
+  serviceMode: PosterServiceMode;
   autoAccept: boolean;
   products: CreateOrderItem[];
 }
