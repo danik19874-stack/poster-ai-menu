@@ -16,6 +16,7 @@ interface MenuItemRow {
   ingredients: PosterIngredientRef[];
   ingredients_known: boolean;
   in_stop_list: boolean;
+  photo_url: string | null;
   updated_at: string;
 }
 
@@ -85,6 +86,7 @@ export async function syncMenu(
       ingredients,
       ingredients_known: ingredientsKnown,
       in_stop_list: product.inStopList,
+      photo_url: product.photoUrl,
       updated_at: new Date().toISOString(),
     });
   }

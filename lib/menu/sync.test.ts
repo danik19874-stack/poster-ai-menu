@@ -13,6 +13,7 @@ describe('syncMenu', () => {
         price: 0,
         type: 1,
         inStopList: false,
+        photoUrl: null,
       },
       {
         productId: 3,
@@ -21,6 +22,7 @@ describe('syncMenu', () => {
         price: 300,
         type: 2,
         inStopList: false,
+        photoUrl: null,
       },
       {
         productId: 5,
@@ -29,6 +31,7 @@ describe('syncMenu', () => {
         price: 1000,
         type: 3,
         inStopList: false,
+        photoUrl: null,
       },
     ];
     const getProducts = vi.fn().mockResolvedValue(products);
@@ -73,6 +76,7 @@ describe('syncMenu', () => {
         price: 300,
         type: 2,
         inStopList: false,
+        photoUrl: null,
       },
     ];
     const getProducts = vi.fn().mockResolvedValue(products);
@@ -100,6 +104,7 @@ describe('syncMenu', () => {
         price: 300,
         type: 2,
         inStopList: false,
+        photoUrl: null,
       },
       {
         productId: 4,
@@ -108,6 +113,7 @@ describe('syncMenu', () => {
         price: 350,
         type: 2,
         inStopList: false,
+        photoUrl: null,
       },
     ];
     const getProducts = vi.fn().mockResolvedValue(products);

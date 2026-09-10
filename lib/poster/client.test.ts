@@ -154,6 +154,7 @@ describe('getProducts', () => {
               price: { '1': '420000' },
               type: '2',
               hidden: '0',
+              photo: '/upload/pos_cdb_1/menu/product_169.jpg',
             },
             {
               product_id: '3',
@@ -161,6 +162,7 @@ describe('getProducts', () => {
               price: { '1': '100000' },
               type: '3',
               hidden: '0',
+              photo: '',
             },
           ],
         }),
@@ -177,6 +179,7 @@ describe('getProducts', () => {
         price: 4200,
         type: 2,
         inStopList: false,
+        photoUrl: 'https://joinposter.com/upload/pos_cdb_1/menu/product_169.jpg',
       },
       {
         productId: 3,
@@ -185,6 +188,7 @@ describe('getProducts', () => {
         price: 1000,
         type: 3,
         inStopList: false,
+        photoUrl: null,
       },
     ]);
   });

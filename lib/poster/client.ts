@@ -15,6 +15,8 @@ interface RawPosterProduct {
   price: Record<string, string>;
   type: string;
   hidden: string;
+  /** Host-relative path, e.g. "/upload/pos_cdb_7631/menu/product_1_1.jpg". Empty string if none. */
+  photo: string;
 }
 
 interface RawPosterIngredient {
@@ -128,6 +130,7 @@ export async function getProducts(token: string): Promise<PosterProduct[]> {
       price,
       type,
       inStopList: raw.hidden === '1',
+      photoUrl: raw.photo ? `https://joinposter.com${raw.photo}` : null,
     };
   });
 }

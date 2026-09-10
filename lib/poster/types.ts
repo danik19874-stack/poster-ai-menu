@@ -24,6 +24,8 @@ export interface PosterProduct {
   price: number;
   type: PosterProductType;
   inStopList: boolean;
+  /** Absolute URL — Poster's raw `photo` field is host-relative. Null if the product has no photo. */
+  photoUrl: string | null;
 }
 
 /** Poster's order service-mode codes: 1 = dine-in, 2 = takeout, 3 = delivery. */
