@@ -1,7 +1,16 @@
-import type { CreateOrderRequest, CreateOrderResponse } from './types';
+import type { CreateOrderRequest, CreateOrderResponse, PosterProduct } from './types';
 import { PosterApiError } from './types';
 
 const POSTER_BASE_URL = 'https://joinposter.com/api';
+
+interface RawPosterProduct {
+  product_id: string;
+  product_name: string;
+  description: string;
+  price: Record<string, string>;
+  ingredient_name: string[] | null;
+  hidden: string;
+}
 
 export async function createOrder(
   token: string,
@@ -39,4 +48,28 @@ export async function createOrder(
   }
 
   return body as CreateOrderResponse;
+}
+
+export async function getProducts(token: string): Promise<PosterProduct[]> {
+  const response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
+
+  if (!response.ok) {
+    throw new PosterApiError(
+      `Poster API request failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const { response: rawProducts } = (await response.json()) as {
+    response: RawPosterProduct[];
+  };
+
+  return rawProducts.map((raw) => ({
+    productId: Number(raw.product_id),
+    name: raw.product_name,
+    description: raw.description,
+    price: Number(Object.values(raw.price)[0]) / 100,
+    ingredients: raw.ingredient_name ? raw.ingredient_name.map((name) => ({ name })) : null,
+    inStopList: raw.hidden === '1',
+  }));
 }

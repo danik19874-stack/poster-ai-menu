@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createOrder } from './client';
+import { createOrder, getProducts } from './client';
 import { PosterApiError } from './types';
 
 describe('createOrder', () => {
@@ -91,5 +91,53 @@ describe('createOrder', () => {
         products: [{ productId: 169, count: 1 }],
       }),
     ).rejects.toThrow(PosterApiError);
+  });
+});
+
+describe('getProducts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps Poster product + ingredient fields into our PosterProduct shape', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              description: 'Сочный стейк',
+              price: { '1': '420000' },
+              ingredient_name: ['говядина', 'розмарин'],
+              hidden: '0',
+            },
+            {
+              product_id: '170',
+              product_name: 'Салат без описания состава',
+              description: '',
+              price: { '1': '150000' },
+              ingredient_name: null,
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    const products = await getProducts('test-token');
+
+    expect(products).toHaveLength(2);
+    expect(products[0]).toEqual({
+      productId: 169,
+      name: 'Стейк рибай',
+      description: 'Сочный стейк',
+      price: 4200,
+      ingredients: [{ name: 'говядина' }, { name: 'розмарин' }],
+      inStopList: false,
+    });
+    expect(products[1].ingredients).toBeNull();
   });
 });
