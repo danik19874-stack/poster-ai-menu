@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import AskAboutDish from "./AskAboutDish";
+import AddToCart from "./AddToCart";
 import styles from "./detail.module.css";
 
 interface IngredientRef {
@@ -10,16 +11,20 @@ interface IngredientRef {
 
 export default async function DishDetail({
   params,
+  searchParams,
 }: {
-  params: Promise<{ itemId: string }>;
+  params: Promise<{ restaurantId: string; itemId: string }>;
+  searchParams: Promise<{ table?: string }>;
 }) {
-  const { itemId } = await params;
+  const { restaurantId, itemId } = await params;
+  const { table } = await searchParams;
   const supabase = getSupabaseServerClient();
 
   const { data: item } = await supabase
     .from("menu_items")
-    .select("id, name, description, price, ingredients, ingredients_known, photo_url")
+    .select("id, poster_product_id, name, description, price, ingredients, ingredients_known, photo_url")
     .eq("id", itemId)
+    .eq("restaurant_id", restaurantId)
     .single();
 
   if (!item) {
@@ -27,10 +32,11 @@ export default async function DishDetail({
   }
 
   const ingredients = (item.ingredients as IngredientRef[] | null) ?? [];
+  const backHref = `/menu-preview/${restaurantId}${table ? `?table=${table}` : ""}`;
 
   return (
     <div className={styles.page}>
-      <Link href="/menu-preview" className={styles.back}>
+      <Link href={backHref} className={styles.back}>
         ← Назад в меню
       </Link>
 
@@ -66,6 +72,14 @@ export default async function DishDetail({
             </p>
           )}
         </div>
+
+        <AddToCart
+          table={table}
+          productId={item.poster_product_id}
+          menuItemId={item.id}
+          name={item.name}
+          price={item.price}
+        />
       </div>
 
       <AskAboutDish
