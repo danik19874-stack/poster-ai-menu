@@ -37,12 +37,17 @@ export function CartProvider({
   // already fully client/browser-driven for anything cart-related.
   useEffect(() => {
     if (!table) return;
+    let next: CartItem[] = [];
     try {
       const raw = localStorage.getItem(storageKey(restaurantId, table));
-      setItems(raw ? (JSON.parse(raw) as CartItem[]) : []);
+      next = raw ? (JSON.parse(raw) as CartItem[]) : [];
     } catch {
-      setItems([]);
+      next = [];
     }
+    // Hydrating from localStorage (browser-only, unavailable during SSR) is
+    // exactly what an Effect is for here; there's no render-time equivalent.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setItems(next);
   }, [restaurantId, table]);
 
   function persist(next: CartItem[]) {

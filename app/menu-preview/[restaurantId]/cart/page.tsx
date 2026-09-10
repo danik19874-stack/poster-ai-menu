@@ -43,6 +43,20 @@ export default function CartPage({
     );
   }
 
+  if (!cart.table) {
+    return (
+      <div className={styles.page}>
+        <p className={styles.warning}>
+          Номер стола не определён — отсканируйте QR-код на столе ещё раз, иначе заказ отправить
+          не получится.
+        </p>
+        <Link href={menuHref} className={styles.backLink}>
+          ← В меню
+        </Link>
+      </div>
+    );
+  }
+
   if (cart.items.length === 0) {
     return (
       <div className={styles.page}>
@@ -55,7 +69,7 @@ export default function CartPage({
   }
 
   async function submit() {
-    if (!restaurantId || !cart.table) return;
+    if (!restaurantId) return;
     setStatus("submitting");
     try {
       const res = await fetch("/api/orders", {
@@ -86,13 +100,6 @@ export default function CartPage({
         ← В меню
       </Link>
       <h1 className={styles.title}>Ваш заказ</h1>
-
-      {!cart.table && (
-        <p className={styles.warning}>
-          Номер стола не определён — отсканируйте QR-код на столе ещё раз, иначе заказ отправить
-          не получится.
-        </p>
-      )}
 
       <ul className={styles.list}>
         {cart.items.map((item) => (
@@ -126,7 +133,7 @@ export default function CartPage({
       <button
         type="button"
         className={styles.submitButton}
-        disabled={!cart.table || status === "submitting"}
+        disabled={status === "submitting"}
         onClick={submit}
       >
         {status === "submitting" ? "Отправляем…" : "Оформить заказ"}
