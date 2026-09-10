@@ -1,10 +1,15 @@
 create table restaurants (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  poster_spot_id integer not null,
+  poster_spot_id integer not null unique,
   poster_token text not null,
   created_at timestamptz not null default now()
 );
+
+comment on column restaurants.poster_token is
+  'Plaintext Poster API token — known gap, tracked in docs/superpowers/specs/2026-09-10-poster-ai-menu-design.md. '
+  'Only service-role server code reads this table today (no RLS/anon-key path yet), which bounds exposure, '
+  'but encrypt via Supabase Vault before onboarding real paying restaurants.';
 
 create table menu_items (
   id uuid primary key default gen_random_uuid(),
@@ -20,4 +25,6 @@ create table menu_items (
   unique (restaurant_id, poster_product_id)
 );
 
-create index menu_items_restaurant_id_idx on menu_items(restaurant_id);
+-- No separate index on menu_items(restaurant_id): the composite unique
+-- constraint above already provides one via its leftmost column, so a
+-- standalone index here would only add write overhead with no query benefit.
