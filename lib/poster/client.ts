@@ -1,7 +1,9 @@
 import type {
   CreateIncomingOrderRequest,
   CreateIncomingOrderResult,
+  PosterIngredientRef,
   PosterProduct,
+  PosterProductType,
 } from './types';
 import { PosterApiError } from './types';
 
@@ -10,10 +12,17 @@ const POSTER_BASE_URL = 'https://joinposter.com/api';
 interface RawPosterProduct {
   product_id: string;
   product_name: string;
-  description: string;
   price: Record<string, string>;
-  ingredient_name: string[] | null;
+  type: string;
   hidden: string;
+}
+
+interface RawPosterIngredient {
+  ingredient_name: string;
+}
+
+interface RawPosterProductDetail {
+  ingredients?: RawPosterIngredient[];
 }
 
 export async function createIncomingOrder(
@@ -44,9 +53,6 @@ export async function createIncomingOrder(
       },
     );
   } catch (err) {
-    // fetch itself threw (DNS failure, connection reset, timeout, ...) — Poster was never
-    // reached, so there is no HTTP status. Use 0 as a sentinel so callers can tell this apart
-    // from a real 4xx/5xx response from Poster.
     const message = err instanceof Error ? err.message : String(err);
     throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
   }
@@ -60,17 +66,9 @@ export async function createIncomingOrder(
   }
 
   const parsed = await response.json();
-  // TODO(Task 9 — live API verification): incomingOrders is an older-style Poster endpoint
-  // like menu.getProducts, which is known to return numeric fields as strings (product_id,
-  // hidden). incoming_order_id/status may do the same — coerce via Number() rather than a
-  // strict typeof check, so a stringly-typed but otherwise-valid response doesn't make us
-  // falsely report a real, successfully-placed order as failed.
   const incomingOrderId = Number(parsed?.response?.incoming_order_id);
   const status = Number(parsed?.response?.status);
   if (!Number.isFinite(incomingOrderId) || !Number.isFinite(status)) {
-    // Poster responded 2xx but the payload doesn't match the shape we rely on. Reuse the
-    // real (ok) HTTP status here since Poster did successfully respond — this is a contract
-    // mismatch, not a transport or rejection error, so it shouldn't be confused with either.
     throw new PosterApiError(
       'Poster returned an unexpected incoming order response shape',
       response.status,
@@ -80,10 +78,14 @@ export async function createIncomingOrder(
   return { incomingOrderId, status };
 }
 
-// TODO(Task 9 — live API verification): harden like createIncomingOrder (network-error wrapping,
-// response-shape validation) once the real Poster response shape is confirmed.
 export async function getProducts(token: string): Promise<PosterProduct[]> {
-  const response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
+  let response: Response;
+  try {
+    response = await fetch(`${POSTER_BASE_URL}/menu.getProducts?token=${token}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
+  }
 
   if (!response.ok) {
     throw new PosterApiError(
@@ -101,19 +103,59 @@ export async function getProducts(token: string): Promise<PosterProduct[]> {
     // Revisit if a multi-spot account is ever onboarded.
     const price = Number(Object.values(raw.price)[0]) / 100;
     if (Number.isNaN(price)) {
-      // Not a real HTTP response problem — this is a data-shape problem in an otherwise-ok
-      // response, so there's no genuine status code. Reuse the same 0 sentinel createIncomingOrder
-      // uses for its own "no real HTTP status applies" case, for consistency.
       throw new PosterApiError(`Product ${raw.product_id} has no price at any spot`, 0);
+    }
+
+    const type = Number(raw.type) as PosterProductType;
+    if (type !== 1 && type !== 2 && type !== 3) {
+      throw new PosterApiError(
+        `Product ${raw.product_id} has an unrecognized type: ${raw.type}`,
+        0,
+      );
     }
 
     return {
       productId: Number(raw.product_id),
       name: raw.product_name,
-      description: raw.description,
+      // menu.getProducts has no description field — see PosterProduct's doc comment.
+      description: '',
       price,
-      ingredients: raw.ingredient_name ? raw.ingredient_name.map((name) => ({ name })) : null,
+      type,
       inStopList: raw.hidden === '1',
     };
   });
+}
+
+export async function getProductIngredients(
+  token: string,
+  productId: number,
+): Promise<PosterIngredientRef[]> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${POSTER_BASE_URL}/menu.getProduct?token=${token}&product_id=${productId}`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PosterApiError(`Network error calling Poster API: ${message}`, 0);
+  }
+
+  if (!response.ok) {
+    throw new PosterApiError(
+      `Poster API request failed with status ${response.status}`,
+      response.status,
+    );
+  }
+
+  const { response: detail } = (await response.json()) as {
+    response: RawPosterProductDetail;
+  };
+
+  // Only тех.карта (recipe) products have an `ingredients` array at all —
+  // a товар (retail item) legitimately has none, that's not an error here.
+  if (!detail.ingredients) {
+    return [];
+  }
+
+  return detail.ingredients.map((raw) => ({ name: raw.ingredient_name }));
 }

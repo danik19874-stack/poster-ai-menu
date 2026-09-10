@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createIncomingOrder, getProducts } from './client';
+import { createIncomingOrder, getProducts, getProductIngredients } from './client';
 import { PosterApiError } from './types';
 
 describe('createIncomingOrder', () => {
@@ -141,7 +141,7 @@ describe('getProducts', () => {
     vi.unstubAllGlobals();
   });
 
-  it('maps Poster product + ingredient fields into our PosterProduct shape', async () => {
+  it('maps Poster product fields into our PosterProduct shape, including type', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -151,17 +151,15 @@ describe('getProducts', () => {
             {
               product_id: '169',
               product_name: 'Стейк рибай',
-              description: 'Сочный стейк',
               price: { '1': '420000' },
-              ingredient_name: ['говядина', 'розмарин'],
+              type: '2',
               hidden: '0',
             },
             {
-              product_id: '170',
-              product_name: 'Салат без описания состава',
-              description: '',
-              price: { '1': '150000' },
-              ingredient_name: null,
+              product_id: '3',
+              product_name: 'Вода минеральная',
+              price: { '1': '100000' },
+              type: '3',
               hidden: '0',
             },
           ],
@@ -171,16 +169,24 @@ describe('getProducts', () => {
 
     const products = await getProducts('test-token');
 
-    expect(products).toHaveLength(2);
-    expect(products[0]).toEqual({
-      productId: 169,
-      name: 'Стейк рибай',
-      description: 'Сочный стейк',
-      price: 4200,
-      ingredients: [{ name: 'говядина' }, { name: 'розмарин' }],
-      inStopList: false,
-    });
-    expect(products[1].ingredients).toBeNull();
+    expect(products).toEqual([
+      {
+        productId: 169,
+        name: 'Стейк рибай',
+        description: '',
+        price: 4200,
+        type: 2,
+        inStopList: false,
+      },
+      {
+        productId: 3,
+        name: 'Вода минеральная',
+        description: '',
+        price: 1000,
+        type: 3,
+        inStopList: false,
+      },
+    ]);
   });
 
   it('throws PosterApiError instead of producing a NaN price when a product has no price at any spot', async () => {
@@ -193,9 +199,8 @@ describe('getProducts', () => {
             {
               product_id: '169',
               product_name: 'Стейк рибай',
-              description: 'Сочный стейк',
               price: {},
-              ingredient_name: ['говядина'],
+              type: '2',
               hidden: '0',
             },
           ],
@@ -204,5 +209,79 @@ describe('getProducts', () => {
     );
 
     await expect(getProducts('test-token')).rejects.toThrow(PosterApiError);
+  });
+
+  it('throws PosterApiError when a product has an unrecognized type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: [
+            {
+              product_id: '169',
+              product_name: 'Стейк рибай',
+              price: { '1': '420000' },
+              type: '9',
+              hidden: '0',
+            },
+          ],
+        }),
+      }),
+    );
+
+    await expect(getProducts('test-token')).rejects.toThrow(PosterApiError);
+  });
+});
+
+describe('getProductIngredients', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('maps a тех.карта response ingredients array to PosterIngredientRef[]', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: {
+          ingredients: [{ ingredient_name: 'Вода' }, { ingredient_name: 'Кофе' }],
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ingredients = await getProductIngredients('test-token', 3);
+
+    expect(ingredients).toEqual([{ name: 'Вода' }, { name: 'Кофе' }]);
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://joinposter.com/api/menu.getProduct?token=test-token&product_id=3');
+  });
+
+  it('returns an empty array for a товар with no ingredients field at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ response: {} }) }),
+    );
+
+    const ingredients = await getProductIngredients('test-token', 1);
+
+    expect(ingredients).toEqual([]);
+  });
+
+  it('throws PosterApiError on a non-ok response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({}) }),
+    );
+
+    await expect(getProductIngredients('test-token', 999)).rejects.toThrow(PosterApiError);
+  });
+
+  it('wraps a network failure in PosterApiError with statusCode 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(getProductIngredients('test-token', 1)).rejects.toMatchObject({
+      statusCode: 0,
+    });
   });
 });

@@ -4,53 +4,90 @@ import { syncMenu } from './sync';
 import type { PosterProduct } from '../poster/types';
 
 describe('syncMenu', () => {
-  it('upserts each Poster product into menu_items with ingredients_known derived from ingredients', async () => {
+  it('fetches real ingredients for тех.карта items, marks товар items as not applicable, and skips полуфабрикаты', async () => {
     const products: PosterProduct[] = [
       {
-        productId: 169,
-        name: 'Стейк рибай',
-        description: 'Сочный стейк',
-        price: 4200,
-        ingredients: [{ name: 'говядина' }],
+        productId: 1,
+        name: 'Полуфабрикат теста',
+        description: '',
+        price: 0,
+        type: 1,
         inStopList: false,
       },
       {
-        productId: 170,
-        name: 'Салат без состава',
+        productId: 3,
+        name: 'Капучино 250 мл',
         description: '',
-        price: 1500,
-        ingredients: null,
+        price: 300,
+        type: 2,
+        inStopList: false,
+      },
+      {
+        productId: 5,
+        name: 'Вода минеральная',
+        description: '',
+        price: 1000,
+        type: 3,
         inStopList: false,
       },
     ];
     const getProducts = vi.fn().mockResolvedValue(products);
+    const getProductIngredients = vi
+      .fn()
+      .mockResolvedValue([{ name: 'Кофе' }, { name: 'Молоко' }]);
 
     const upsert = vi.fn().mockResolvedValue({ error: null });
     const supabase = { from: vi.fn().mockReturnValue({ upsert }) };
 
-    await syncMenu(supabase as unknown as SupabaseClient, getProducts, {
-      restaurantId: 'r1',
-      posterToken: 'tok',
-    });
-
-    expect(getProducts).toHaveBeenCalledWith('tok');
-    expect(supabase.from).toHaveBeenCalledWith('menu_items');
-    expect(upsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          restaurant_id: 'r1',
-          poster_product_id: 169,
-          ingredients: [{ name: 'говядина' }],
-          ingredients_known: true,
-        }),
-        expect.objectContaining({
-          restaurant_id: 'r1',
-          poster_product_id: 170,
-          ingredients: null,
-          ingredients_known: false,
-        }),
-      ],
-      { onConflict: 'restaurant_id,poster_product_id' },
+    await syncMenu(
+      supabase as unknown as SupabaseClient,
+      { getProducts, getProductIngredients },
+      { restaurantId: 'r1', posterToken: 'tok' },
     );
+
+    expect(getProductIngredients).toHaveBeenCalledTimes(1);
+    expect(getProductIngredients).toHaveBeenCalledWith('tok', 3);
+
+    const [rows] = upsert.mock.calls[0];
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual([
+      expect.objectContaining({
+        poster_product_id: 3,
+        ingredients: [{ name: 'Кофе' }, { name: 'Молоко' }],
+        ingredients_known: true,
+      }),
+      expect.objectContaining({
+        poster_product_id: 5,
+        ingredients: [],
+        ingredients_known: true,
+      }),
+    ]);
+  });
+
+  it('marks a тех.карта with an empty recipe as ingredients_known: false (nobody filled it in yet)', async () => {
+    const products: PosterProduct[] = [
+      {
+        productId: 3,
+        name: 'Блюдо без заполненного рецепта',
+        description: '',
+        price: 300,
+        type: 2,
+        inStopList: false,
+      },
+    ];
+    const getProducts = vi.fn().mockResolvedValue(products);
+    const getProductIngredients = vi.fn().mockResolvedValue([]);
+
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const supabase = { from: vi.fn().mockReturnValue({ upsert }) };
+
+    await syncMenu(
+      supabase as unknown as SupabaseClient,
+      { getProducts, getProductIngredients },
+      { restaurantId: 'r1', posterToken: 'tok' },
+    );
+
+    const [rows] = upsert.mock.calls[0];
+    expect(rows[0]).toEqual(expect.objectContaining({ ingredients: [], ingredients_known: false }));
   });
 });

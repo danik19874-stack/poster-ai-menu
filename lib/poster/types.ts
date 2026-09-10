@@ -2,13 +2,27 @@ export interface PosterIngredientRef {
   name: string;
 }
 
+/**
+ * Poster product types: 1 = полуфабрикат (semi-finished component, not a
+ * guest-orderable dish), 2 = тех.карта (a recipe/dish — the only type that
+ * carries a real ingredient breakdown, and only via getProduct, not
+ * getProducts), 3 = товар (a plain retail item, e.g. bottled water — has no
+ * recipe by design, not a data gap).
+ */
+export type PosterProductType = 1 | 2 | 3;
+
 export interface PosterProduct {
   productId: number;
   name: string;
+  /**
+   * Poster's product-list endpoint (menu.getProducts) has no description
+   * field at all — always empty string from that source today. Left in the
+   * domain type for a future manual-entry path, not currently populated.
+   */
   description: string;
   /** Normalized to major currency units (e.g. tenge) — NOT Poster's raw minor-unit price. */
   price: number;
-  ingredients: PosterIngredientRef[] | null;
+  type: PosterProductType;
   inStopList: boolean;
 }
 
