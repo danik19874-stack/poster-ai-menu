@@ -122,6 +122,7 @@ export default async function AdminDashboard() {
             <th>Использовано сегодня</th>
             <th>Статус</th>
             <th></th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -141,12 +142,19 @@ export default async function AdminDashboard() {
                     </button>
                   </form>
                 </td>
+                <td>
+                  <form method="POST" action={`/api/admin/keys/${key.id}/delete`}>
+                    <button className={styles.dangerButton} type="submit">
+                      Удалить
+                    </button>
+                  </form>
+                </td>
               </tr>
             );
           })}
           {(keys ?? []).length === 0 && (
             <tr>
-              <td colSpan={4} className={styles.empty}>
+              <td colSpan={5} className={styles.empty}>
                 Ключей пока нет — добавьте первый ниже.
               </td>
             </tr>
