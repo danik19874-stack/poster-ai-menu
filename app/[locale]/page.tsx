@@ -1,73 +1,6 @@
+import { getTranslations } from "next-intl/server";
 import styles from "./page.module.css";
-
-const NAV_LINKS = [
-  { href: "#features", label: "Возможности" },
-  { href: "#how", label: "Как это работает" },
-  { href: "#benefits", label: "Преимущества" },
-  { href: "#pricing", label: "Тарифы" },
-];
-
-const FEATURES = [
-  {
-    icon: "bolt",
-    title: "Заказ без ожидания официанта",
-    badge: "Главное",
-    text: "Гость видит меню, выбирает блюдо и оформляет заказ сам — прямо со своего телефона, не ловя официанта в разгар смены.",
-    highlight: true,
-  },
-  {
-    icon: "chat",
-    title: "Честный ИИ-официант",
-    text: "Отвечает по составу из вашей кассы. Не знает — так и скажет «уточните у официанта», а не придумает.",
-  },
-  {
-    icon: "star",
-    title: "Меню без рассинхрона",
-    text: "Поменяли цену или стоп-лист на кассе — гость увидел это в ту же секунду.",
-  },
-  {
-    icon: "chart",
-    title: "Рекомендации, а не просто список",
-    text: "ИИ подскажет блюдо в тему заказа — как хороший официант, но всегда, а не когда есть время.",
-  },
-];
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Гость открывает меню",
-    text: "Сканирует QR на столе — попадает прямо в меню заведения.",
-  },
-  {
-    n: "02",
-    title: "Выбирает блюда и спрашивает у ИИ",
-    text: "Узнаёт состав, калории, аллергены и оформляет заказ сам.",
-  },
-  {
-    n: "03",
-    title: "Получает заказ без ожидания",
-    text: "Заказ мгновенно на кассе — официант подтверждает одним тапом.",
-  },
-];
-
-const BENEFITS = [
-  {
-    title: "Гость не рискует здоровьем",
-    text: "Честный ответ про аллерген вместо «наверное, орехов нет» от официанта, который не готовил блюдо сам.",
-  },
-  {
-    title: "Выше средний чек",
-    text: "ИИ ненавязчиво рекомендует к заказу — то же допродажа, что делает хороший официант, но без пропусков.",
-  },
-  {
-    title: "Официант — не справочник по составу",
-    text: "Рутинные вопросы про аллергены уходят к ИИ, персонал занят гостями, которым правда нужна помощь.",
-  },
-  {
-    title: "Подключение за пару минут",
-    text: "Через Poster, без интеграторов и технической настройки с вашей стороны.",
-  },
-];
+import LanguageSwitcher from "./LanguageSwitcher";
 
 function Icon({ name }: { name: string }) {
   switch (name) {
@@ -133,16 +66,57 @@ function Icon({ name }: { name: string }) {
   }
 }
 
-const BENEFIT_ICONS = ["guests", "trend", "hands", "plug"];
+export default async function Home() {
+  const tHeader = await getTranslations("Header");
+  const tHero = await getTranslations("Hero");
+  const tFeatures = await getTranslations("Features");
+  const tHow = await getTranslations("HowItWorks");
+  const tBenefits = await getTranslations("Benefits");
+  const tPricing = await getTranslations("Pricing");
+  const tCtaBanner = await getTranslations("CtaBanner");
+  const tFooter = await getTranslations("Footer");
 
-const PRICING_ITEMS = [
-  "ИИ-консультант по составу и аллергенам — без лимита на вопросы",
-  "Приём заказа с QR прямо на кассу Poster",
-  "Меню синхронизировано с кассой автоматически",
-  "Один тариф без ступеней и доплат за рост",
-];
+  const navLinks = [
+    { href: "#features", label: tHeader("navFeatures") },
+    { href: "#how", label: tHeader("navHow") },
+    { href: "#benefits", label: tHeader("navBenefits") },
+    { href: "#pricing", label: tHeader("navPricing") },
+  ];
 
-export default function Home() {
+  const features = [
+    {
+      icon: "bolt",
+      title: tFeatures("item1Title"),
+      badge: tFeatures("item1Badge"),
+      text: tFeatures("item1Text"),
+      highlight: true,
+    },
+    { icon: "chat", title: tFeatures("item2Title"), text: tFeatures("item2Text") },
+    { icon: "star", title: tFeatures("item3Title"), text: tFeatures("item3Text") },
+    { icon: "chart", title: tFeatures("item4Title"), text: tFeatures("item4Text") },
+  ];
+
+  const steps = [
+    { n: "01", title: tHow("step1Title"), text: tHow("step1Text") },
+    { n: "02", title: tHow("step2Title"), text: tHow("step2Text") },
+    { n: "03", title: tHow("step3Title"), text: tHow("step3Text") },
+  ];
+
+  const benefits = [
+    { title: tBenefits("item1Title"), text: tBenefits("item1Text") },
+    { title: tBenefits("item2Title"), text: tBenefits("item2Text") },
+    { title: tBenefits("item3Title"), text: tBenefits("item3Text") },
+    { title: tBenefits("item4Title"), text: tBenefits("item4Text") },
+  ];
+  const benefitIcons = ["guests", "trend", "hands", "plug"];
+
+  const pricingItems = [
+    tPricing("item1"),
+    tPricing("item2"),
+    tPricing("item3"),
+    tPricing("item4"),
+  ];
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -151,18 +125,19 @@ export default function Home() {
             <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.brandMark} />
             <span className={styles.brandText}>
               НеЖди
-              <span className={styles.brandSub}>Виджет для Joinposter</span>
+              <span className={styles.brandSub}>{tHeader("brandSub")}</span>
             </span>
           </a>
           <nav className={styles.nav}>
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a key={link.href} href={link.href}>
                 {link.label}
               </a>
             ))}
           </nav>
+          <LanguageSwitcher />
           <a className={styles.headerCta} href="/api/oauth/start">
-            Подключить
+            {tHeader("cta")}
           </a>
         </div>
       </header>
@@ -172,28 +147,25 @@ export default function Home() {
         <div className={styles.heroOverlay} aria-hidden="true" />
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
-            <span className={styles.eyebrow}>Виджет для Joinposter</span>
+            <span className={styles.eyebrow}>{tHero("eyebrow")}</span>
             <h1 className={styles.title}>
-              НеЖди — заказывай, узнавай,
+              {tHero("titleLine1")}
               <br />
-              <span className={styles.titleAccent}>наслаждайся</span>
+              <span className={styles.titleAccent}>{tHero("titleAccent")}</span>
             </h1>
-            <p className={styles.subtitle}>
-              Пока гость ждёт официанта, чтобы спросить про орехи в соусе — он мог бы уже
-              сделать заказ. НеЖди отвечает и принимает заказ сам, пока вы заняты залом.
-            </p>
+            <p className={styles.subtitle}>{tHero("subtitle")}</p>
             <div className={styles.heroActions}>
               <a className={styles.ctaPrimary} href="/api/oauth/start">
-                Подключить виджет →
+                {tHero("ctaPrimary")}
               </a>
               <a className={styles.ctaSecondary} href="#how">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
                   <path d="M8 5v14l11-7-11-7Z" />
                 </svg>
-                Как это работает
+                {tHero("ctaSecondary")}
               </a>
             </div>
-            <p className={styles.heroNote}>$15/мес после пробного периода · 14 дней бесплатно</p>
+            <p className={styles.heroNote}>{tHero("note")}</p>
           </div>
 
           <div className={styles.heroMockWrap}>
@@ -202,26 +174,26 @@ export default function Home() {
               <div className={styles.phoneScreen}>
                 <div className={styles.phoneHeader}>
                   <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.phoneHeaderMark} />
-                  <span>НеЖди</span>
+                  <span>{tHow("mockPhoneBrand")}</span>
                 </div>
                 <div
                   className={styles.phoneDish}
                   style={{ backgroundImage: "url(https://images.unsplash.com/photo-1546069901-ba9599a7e63c?fm=jpg&q=70&w=700&auto=format&fit=crop)" }}
                 />
-                <div className={styles.phoneDishName}>Боул с лососем</div>
-                <div className={styles.phoneDishPrice}>3&nbsp;890&nbsp;₸</div>
+                <div className={styles.phoneDishName}>{tHero("phoneDishName")}</div>
+                <div className={styles.phoneDishPrice}>{tHero("phoneDishPrice")}</div>
                 <div className={styles.phoneTags}>
-                  <span>Состав</span>
-                  <span>Калории</span>
-                  <span>Рекомендовано</span>
+                  <span>{tHero("tagComposition")}</span>
+                  <span>{tHero("tagCalories")}</span>
+                  <span>{tHero("tagRecommended")}</span>
                 </div>
-                <div className={styles.phoneOrderBtn}>Заказать</div>
+                <div className={styles.phoneOrderBtn}>{tHero("orderBtn")}</div>
               </div>
             </div>
 
             <div className={styles.heroBubble}>
               <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.bubbleAvatar} />
-              <p>Это блюдо — лёгкий боул с лососем, свежими овощами и авторским соусом. Идеально для обеда!</p>
+              <p>{tHero("bubbleText")}</p>
             </div>
           </div>
         </div>
@@ -229,10 +201,10 @@ export default function Home() {
 
       <section id="features" className={styles.section}>
         <div className={styles.sectionInner}>
-          <p className={styles.sectionLabel}>Возможности</p>
-          <h2 className={styles.sectionTitle}>Всё, что нужно для удобного заказа</h2>
+          <p className={styles.sectionLabel}>{tFeatures("label")}</p>
+          <h2 className={styles.sectionTitle}>{tFeatures("title")}</h2>
           <div className={styles.featureGrid}>
-            {FEATURES.map((f) => (
+            {features.map((f) => (
               <div
                 key={f.title}
                 className={f.highlight ? `${styles.featureCard} ${styles.featureCardHighlight}` : styles.featureCard}
@@ -253,10 +225,10 @@ export default function Home() {
         <div className={styles.sectionInner}>
           <div className={styles.howGrid}>
             <div className={styles.howCopy}>
-              <p className={styles.sectionLabel}>Как это работает</p>
-              <h2 className={styles.sectionTitle}>Просто. Удобно. Для всех.</h2>
+              <p className={styles.sectionLabel}>{tHow("label")}</p>
+              <h2 className={styles.sectionTitle}>{tHow("title")}</h2>
               <ol className={styles.stepList}>
-                {STEPS.map((s) => (
+                {steps.map((s) => (
                   <li key={s.n}>
                     <span className={styles.stepNum}>{s.n}</span>
                     <div>
@@ -270,8 +242,8 @@ export default function Home() {
                     <Icon name="check" />
                   </span>
                   <div>
-                    <p className={styles.stepTitle}>Без ожидания официанта</p>
-                    <p className={styles.stepText}>Без лишних движений — для гостя и для персонала.</p>
+                    <p className={styles.stepTitle}>{tHow("step4Title")}</p>
+                    <p className={styles.stepText}>{tHow("step4Text")}</p>
                   </div>
                 </li>
               </ol>
@@ -281,9 +253,9 @@ export default function Home() {
               <div className={`${styles.phone} ${styles.phoneStack1}`}>
                 <div className={styles.phoneNotch} />
                 <div className={styles.phoneScreenSm}>
-                  <div className={styles.miniRow}>Паста карбонара</div>
-                  <div className={styles.miniRow}>Боул с лососем</div>
-                  <div className={styles.miniRow}>Цезарь с креветками</div>
+                  <div className={styles.miniRow}>{tHow("mockDish1")}</div>
+                  <div className={styles.miniRow}>{tHow("mockDish2")}</div>
+                  <div className={styles.miniRow}>{tHow("mockDish3")}</div>
                 </div>
               </div>
               <div className={`${styles.phone} ${styles.phoneStack2}`}>
@@ -291,13 +263,13 @@ export default function Home() {
                 <div className={styles.phoneScreenSm}>
                   <div className={styles.phoneHeader}>
                     <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.phoneHeaderMark} />
-                    <span>НеЖди</span>
+                    <span>{tHow("mockPhoneBrand")}</span>
                   </div>
                   <div
                     className={styles.phoneDish}
                     style={{ backgroundImage: "url(https://images.unsplash.com/photo-1546069901-ba9599a7e63c?fm=jpg&q=70&w=700&auto=format&fit=crop)" }}
                   />
-                  <div className={styles.phoneDishName}>Боул с лососем</div>
+                  <div className={styles.phoneDishName}>{tHow("mockDish2")}</div>
                 </div>
               </div>
               <div className={`${styles.phone} ${styles.phoneStack3}`}>
@@ -305,12 +277,10 @@ export default function Home() {
                 <div className={styles.phoneScreenSm}>
                   <div className={styles.phoneHeader}>
                     <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.phoneHeaderMark} />
-                    <span>ИИ-официант</span>
+                    <span>{tHow("mockAiLabel")}</span>
                   </div>
-                  <div className={styles.miniChat}>Есть аллергены?</div>
-                  <div className={styles.miniChatReply}>
-                    В составе сливки, бекон и пармезан. Без орехов и глютена.
-                  </div>
+                  <div className={styles.miniChat}>{tHow("mockChatQuestion")}</div>
+                  <div className={styles.miniChatReply}>{tHow("mockChatReply")}</div>
                 </div>
               </div>
             </div>
@@ -326,21 +296,21 @@ export default function Home() {
               style={{ backgroundImage: "url(https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?fm=jpg&q=70&w=900&auto=format&fit=crop)" }}
             >
               <p>
-                Быстро.
+                {tBenefits("photoText1")}
                 <br />
-                Удобно.
+                {tBenefits("photoText2")}
                 <br />
-                Современно.
+                {tBenefits("photoText3")}
               </p>
             </div>
             <div className={styles.benefitsCopy}>
-              <p className={styles.sectionLabel}>Почему это выгодно</p>
-              <h2 className={styles.sectionTitle}>Современный сервис, который работает на ваш бизнес</h2>
+              <p className={styles.sectionLabel}>{tBenefits("label")}</p>
+              <h2 className={styles.sectionTitle}>{tBenefits("title")}</h2>
               <div className={styles.benefitList}>
-                {BENEFITS.map((b, i) => (
+                {benefits.map((b, i) => (
                   <div key={b.title} className={styles.benefitItem}>
                     <div className={styles.benefitIcon}>
-                      <Icon name={BENEFIT_ICONS[i]} />
+                      <Icon name={benefitIcons[i]} />
                     </div>
                     <div>
                       <p className={styles.benefitTitle}>{b.title}</p>
@@ -357,19 +327,20 @@ export default function Home() {
       <section id="pricing" className={`${styles.section} ${styles.sectionMuted}`}>
         <div className={styles.sectionInner}>
           <p className={styles.sectionLabel} style={{ textAlign: "center" }}>
-            Тарифы
+            {tPricing("label")}
           </p>
           <h2 className={styles.sectionTitle} style={{ textAlign: "center" }}>
-            Один тариф. Без скрытых условий.
+            {tPricing("title")}
           </h2>
           <div className={styles.pricingCard}>
             <p className={styles.pricingPrice}>
-              $15<span>/мес</span>
+              {tPricing("price")}
+              <span>{tPricing("pricePeriod")}</span>
             </p>
-            <p className={styles.pricingSub}>≈ $0.5 в день — меньше чашки кофе</p>
-            <p className={styles.pricingTrial}>Первые 14 дней бесплатно</p>
+            <p className={styles.pricingSub}>{tPricing("priceSub")}</p>
+            <p className={styles.pricingTrial}>{tPricing("trial")}</p>
             <ul className={styles.pricingList}>
-              {PRICING_ITEMS.map((item) => (
+              {pricingItems.map((item) => (
                 <li key={item}>
                   <Icon name="check" />
                   {item}
@@ -377,11 +348,9 @@ export default function Home() {
               ))}
             </ul>
             <a className={styles.ctaPrimary} href="/api/oauth/start">
-              Подключить виджет →
+              {tPricing("cta")}
             </a>
-            <p className={styles.pricingAnchor}>
-              Дешевле, чем платный QR-виджет и ИИ-инструмент по отдельности
-            </p>
+            <p className={styles.pricingAnchor}>{tPricing("anchor")}</p>
           </div>
         </div>
       </section>
@@ -392,19 +361,19 @@ export default function Home() {
             <div className={styles.ctaBannerBrand}>
               <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.ctaBannerMark} />
               <div>
-                <p className={styles.ctaBannerName}>НеЖди</p>
-                <p className={styles.ctaBannerSub}>Умный виджет для Joinposter</p>
+                <p className={styles.ctaBannerName}>{tCtaBanner("brandName")}</p>
+                <p className={styles.ctaBannerSub}>{tCtaBanner("brandSub")}</p>
               </div>
             </div>
             <div className={styles.ctaBannerCopy}>
-              <p className={styles.ctaBannerTitle}>Попробуйте без риска</p>
-              <p className={styles.ctaBannerText}>14 дней бесплатно. Не подошло — отключите в один клик, ничего не платите.</p>
+              <p className={styles.ctaBannerTitle}>{tCtaBanner("title")}</p>
+              <p className={styles.ctaBannerText}>{tCtaBanner("text")}</p>
             </div>
             <div className={styles.ctaBannerAction}>
               <a className={styles.ctaDark} href="/api/oauth/start">
-                Подключить в Joinposter →
+                {tCtaBanner("cta")}
               </a>
-              <p className={styles.ctaBannerNote}>$15/мес после пробного периода</p>
+              <p className={styles.ctaBannerNote}>{tCtaBanner("note")}</p>
             </div>
           </div>
         </div>
@@ -414,19 +383,19 @@ export default function Home() {
         <div className={styles.footerInner}>
           <div>
             <p className={styles.brandText} style={{ color: "var(--lp-light-ink)" }}>
-              НеЖди
+              {tFooter("brandName")}
             </p>
-            <p className={styles.footerSub}>Виджет для Joinposter</p>
+            <p className={styles.footerSub}>{tFooter("brandSub")}</p>
           </div>
           <nav className={styles.footerNav}>
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <a key={link.href} href={link.href}>
                 {link.label}
               </a>
             ))}
           </nav>
           <a className={styles.footerAdmin} href="/admin">
-            Вход для администратора
+            {tFooter("admin")}
           </a>
         </div>
       </footer>
