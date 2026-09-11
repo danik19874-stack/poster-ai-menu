@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { createTableOrder } from '@/lib/orders/createTableOrder';
-import { createIncomingOrder } from '@/lib/poster/client';
+import { createTableOrder, StopListedItemsError } from '@/lib/orders/createTableOrder';
+import { createIncomingOrder, getProducts } from '@/lib/poster/client';
 import { PosterApiError } from '@/lib/poster/types';
 import type { CreateIncomingOrderItem } from '@/lib/poster/types';
 
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
     const result = await createTableOrder(
       {
         getRestaurant: (id) => getRestaurant(supabase, id),
+        getProducts,
         createIncomingOrder,
       },
       {
@@ -81,6 +82,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    if (error instanceof StopListedItemsError) {
+      return NextResponse.json(
+        { error: 'stop_listed', items: error.items },
+        { status: 409 },
+      );
+    }
     if (error instanceof PosterApiError && error.statusCode === 0) {
       return NextResponse.json(
         { error: 'Could not reach Poster right now, please try again' },

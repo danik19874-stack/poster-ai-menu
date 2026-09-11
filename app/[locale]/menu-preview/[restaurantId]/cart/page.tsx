@@ -14,6 +14,7 @@ export default function CartPage({
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "submitting" | "error" | "done">("idle");
   const [orderId, setOrderId] = useState<number | null>(null);
+  const [stopListedItems, setStopListedItems] = useState<string[]>([]);
 
   // params is a Promise in this Next.js version even in client components;
   // resolve it in an Effect rather than making the whole component async
@@ -71,6 +72,7 @@ export default function CartPage({
   async function submit() {
     if (!restaurantId) return;
     setStatus("submitting");
+    setStopListedItems([]);
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -82,6 +84,10 @@ export default function CartPage({
         }),
       });
       if (!res.ok) {
+        if (res.status === 409) {
+          const data = (await res.json().catch(() => null)) as { items?: string[] } | null;
+          setStopListedItems(data?.items ?? []);
+        }
         setStatus("error");
         return;
       }
@@ -126,7 +132,13 @@ export default function CartPage({
         <span>{cart.total} ₸</span>
       </div>
 
-      {status === "error" && (
+      {status === "error" && stopListedItems.length > 0 && (
+        <p className={styles.warning}>
+          Сейчас недоступно: {stopListedItems.join(", ")}. Уберите из корзины и оформите заказ
+          заново.
+        </p>
+      )}
+      {status === "error" && stopListedItems.length === 0 && (
         <p className={styles.warning}>Не получилось отправить заказ. Попробуйте ещё раз.</p>
       )}
 
