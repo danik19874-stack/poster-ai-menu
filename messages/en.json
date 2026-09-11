@@ -1,0 +1,104 @@
+{
+  "Header": {
+    "brandSub": "Widget for Joinposter",
+    "navFeatures": "Features",
+    "navHow": "How it works",
+    "navBenefits": "Benefits",
+    "navPricing": "Pricing",
+    "cta": "Connect"
+  },
+  "Hero": {
+    "eyebrow": "Widget for Joinposter",
+    "titleLine1": "NeZhdi — order, ask,",
+    "titleAccent": "enjoy",
+    "subtitle": "While the guest waits to ask if the sauce has nuts in it, they could already have placed the order. NeZhdi answers questions and takes the order itself, while you focus on the floor.",
+    "ctaPrimary": "Connect the widget →",
+    "ctaSecondary": "How it works",
+    "note": "$15/mo after the trial · 14 days free",
+    "phoneDishName": "Salmon Bowl",
+    "phoneDishPrice": "3 890 ₸",
+    "tagComposition": "Ingredients",
+    "tagCalories": "Calories",
+    "tagRecommended": "Recommended",
+    "orderBtn": "Order",
+    "bubbleText": "This dish is a light salmon bowl with fresh vegetables and our signature sauce. Perfect for lunch!"
+  },
+  "Features": {
+    "label": "Features",
+    "title": "Everything you need for effortless ordering",
+    "item1Title": "No more waiting for the waiter",
+    "item1Badge": "Key feature",
+    "item1Text": "The guest sees the menu, picks a dish, and places the order themselves — right from their phone, without chasing a waiter mid-shift.",
+    "item2Title": "Honest AI waiter",
+    "item2Text": "Answers from your POS data. Doesn't know something? It says so — \"please check with your server\" — instead of making it up.",
+    "item3Title": "A menu that's never out of sync",
+    "item3Text": "Change a price or 86 a dish at the register — the guest sees it the very same second.",
+    "item4Title": "Recommendations, not just a list",
+    "item4Text": "The AI suggests a fitting dish for the order — like a good waiter, but every time, not only when there's time."
+  },
+  "HowItWorks": {
+    "label": "How it works",
+    "title": "Simple. Convenient. For everyone.",
+    "step1Title": "Guest opens the menu",
+    "step1Text": "Scans the QR code on the table — lands straight in the venue's menu.",
+    "step2Title": "Picks dishes and asks the AI",
+    "step2Text": "Finds out about ingredients, calories, and allergens, then places the order themselves.",
+    "step3Title": "Gets the order without waiting",
+    "step3Text": "The order appears on the register instantly — the waiter confirms it with one tap.",
+    "step4Title": "No waiting for the waiter",
+    "step4Text": "No extra hassle — for the guest or for the staff.",
+    "mockDish1": "Carbonara Pasta",
+    "mockDish2": "Salmon Bowl",
+    "mockDish3": "Caesar with Shrimp",
+    "mockPhoneBrand": "NeZhdi",
+    "mockAiLabel": "AI waiter",
+    "mockChatQuestion": "Any allergens?",
+    "mockChatReply": "Contains cream, bacon, and parmesan. No nuts or gluten."
+  },
+  "Benefits": {
+    "label": "Why it pays off",
+    "title": "A modern service that works for your business",
+    "photoText1": "Fast.",
+    "photoText2": "Convenient.",
+    "photoText3": "Modern.",
+    "item1Title": "Guests don't gamble with their health",
+    "item1Text": "An honest answer about allergens beats a \"probably no nuts\" from a waiter who didn't cook the dish.",
+    "item2Title": "Higher average check",
+    "item2Text": "The AI gently recommends add-ons — the same upselling a good waiter does, minus the missed opportunities.",
+    "item3Title": "Your waiter isn't a walking ingredient list",
+    "item3Text": "Routine allergen questions go to the AI, freeing staff for guests who actually need help.",
+    "item4Title": "Set up in a couple of minutes",
+    "item4Text": "Through Poster, no integrators or technical setup on your end."
+  },
+  "Pricing": {
+    "label": "Pricing",
+    "title": "One plan. No hidden terms.",
+    "price": "$15",
+    "pricePeriod": "/mo",
+    "priceSub": "≈ $0.5 a day — less than a cup of coffee",
+    "trial": "First 14 days free",
+    "item1": "AI consultant on ingredients and allergens — unlimited questions",
+    "item2": "Order taking via QR straight to your Poster register",
+    "item3": "Menu synced with your register automatically",
+    "item4": "One flat plan, no tiers or growth surcharges",
+    "cta": "Connect the widget →",
+    "anchor": "Cheaper than a paid QR widget and an AI tool bought separately"
+  },
+  "CtaBanner": {
+    "brandName": "NeZhdi",
+    "brandSub": "Smart widget for Joinposter",
+    "title": "Try it risk-free",
+    "text": "14 days free. Doesn't fit? Turn it off in one click, pay nothing.",
+    "cta": "Connect in Joinposter →",
+    "note": "$15/mo after the trial"
+  },
+  "Footer": {
+    "brandName": "NeZhdi",
+    "brandSub": "Widget for Joinposter",
+    "admin": "Admin sign-in"
+  },
+  "Metadata": {
+    "title": "AI menu widget for Poster POS",
+    "description": "Guest menu via QR code with an AI consultant on dish ingredients."
+  }
+}
