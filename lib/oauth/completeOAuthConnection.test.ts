@@ -10,7 +10,7 @@ describe('completeOAuthConnection', () => {
       { spotId: 1, name: 'Кафе на Полянке', address: 'Киев' },
       { spotId: 2, name: 'Вторая точка', address: 'Алматы' },
     ]);
-    const upsertRestaurant = vi.fn().mockResolvedValue(undefined);
+    const upsertRestaurant = vi.fn().mockResolvedValue({ id: 'restaurant-uuid-1' });
 
     const result = await completeOAuthConnection(
       { exchangeOAuthCode, getSpots, upsertRestaurant },
@@ -25,7 +25,7 @@ describe('completeOAuthConnection', () => {
       posterToken: '687409:abc123',
       name: 'Кафе на Полянке',
     });
-    expect(result).toEqual({ restaurantName: 'Кафе на Полянке' });
+    expect(result).toEqual({ restaurantName: 'Кафе на Полянке', restaurantId: 'restaurant-uuid-1' });
   });
 
   it('throws without upserting when the account has no spots', async () => {

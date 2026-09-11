@@ -31,22 +31,27 @@ export async function GET(request: NextRequest) {
     posterToken: string;
     name: string;
   }) {
-    const { error } = await supabase.from('restaurants').upsert(
-      {
-        poster_account_number: restaurant.posterAccountNumber,
-        poster_spot_id: restaurant.posterSpotId,
-        poster_token: restaurant.posterToken,
-        name: restaurant.name,
-      },
-      { onConflict: 'poster_account_number' },
-    );
-    if (error) {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .upsert(
+        {
+          poster_account_number: restaurant.posterAccountNumber,
+          poster_spot_id: restaurant.posterSpotId,
+          poster_token: restaurant.posterToken,
+          name: restaurant.name,
+        },
+        { onConflict: 'poster_account_number' },
+      )
+      .select('id')
+      .single();
+    if (error || !data) {
       // Don't leak raw Postgres/Supabase error details (e.g. constraint names) to the
       // caller — this route is reachable via an unauthenticated GET. Log the real error
       // server-side and throw a generic message instead.
       console.error('Failed to save restaurant after OAuth:', error);
       throw new Error('Failed to save restaurant after OAuth');
     }
+    return { id: data.id as string };
   }
 
   try {
@@ -54,7 +59,10 @@ export async function GET(request: NextRequest) {
       { exchangeOAuthCode, getSpots, upsertRestaurant },
       { account, code },
     );
-    return NextResponse.json({ connected: true, restaurantName: result.restaurantName });
+    const connectedUrl = new URL('/connected', request.url);
+    connectedUrl.searchParams.set('restaurant', result.restaurantId);
+    connectedUrl.searchParams.set('name', result.restaurantName);
+    return NextResponse.redirect(connectedUrl);
   } catch (error) {
     if (error instanceof PosterApiError && error.statusCode === 0) {
       console.error('OAuth callback: could not reach Poster:', error);

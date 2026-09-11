@@ -9,13 +9,13 @@ export interface OAuthConnectionDeps {
     posterSpotId: number;
     posterToken: string;
     name: string;
-  }) => Promise<void>;
+  }) => Promise<{ id: string }>;
 }
 
 export async function completeOAuthConnection(
   deps: OAuthConnectionDeps,
   args: { account: string; code: string },
-): Promise<{ restaurantName: string }> {
+): Promise<{ restaurantName: string; restaurantId: string }> {
   const { accessToken, accountNumber } = await deps.exchangeOAuthCode(args.account, args.code);
   const spots = await deps.getSpots(accessToken);
 
@@ -28,12 +28,12 @@ export async function completeOAuthConnection(
   // connect. Revisit if a multi-spot account is ever onboarded via oAuth.
   const spot = spots[0];
 
-  await deps.upsertRestaurant({
+  const { id } = await deps.upsertRestaurant({
     posterAccountNumber: accountNumber,
     posterSpotId: spot.spotId,
     posterToken: accessToken,
     name: spot.name,
   });
 
-  return { restaurantName: spot.name };
+  return { restaurantName: spot.name, restaurantId: id };
 }

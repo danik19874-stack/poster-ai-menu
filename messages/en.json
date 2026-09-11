@@ -101,5 +101,17 @@
   "Metadata": {
     "title": "AI menu widget for Poster POS",
     "description": "Guest menu via QR code with an AI consultant on dish ingredients."
+  },
+  "Connected": {
+    "eyebrow": "Done",
+    "title": "Your venue is connected",
+    "subtitle": "{name} is now live with the AI menu. Print the table QR codes to finish setup.",
+    "tableLabel": "Table number",
+    "linkLabel": "Link for this table",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download QR (PNG)",
+    "hint": "Each table needs its own QR — just change the table number above and download again.",
+    "adminLink": "Go to admin →"
   }
 }
