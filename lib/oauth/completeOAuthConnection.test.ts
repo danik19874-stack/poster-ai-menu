@@ -11,9 +11,10 @@ describe('completeOAuthConnection', () => {
       { spotId: 2, name: 'Вторая точка', address: 'Алматы' },
     ]);
     const upsertRestaurant = vi.fn().mockResolvedValue({ id: 'restaurant-uuid-1' });
+    const syncMenu = vi.fn().mockResolvedValue(undefined);
 
     const result = await completeOAuthConnection(
-      { exchangeOAuthCode, getSpots, upsertRestaurant },
+      { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
       { account: 'mycafe', code: 'the-code' },
     );
 
@@ -28,20 +29,61 @@ describe('completeOAuthConnection', () => {
     expect(result).toEqual({ restaurantName: 'Кафе на Полянке', restaurantId: 'restaurant-uuid-1' });
   });
 
+  it('syncs the menu for the newly connected restaurant', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: '687409:abc123', accountNumber: '687409' });
+    const getSpots = vi
+      .fn()
+      .mockResolvedValue([{ spotId: 1, name: 'Кафе на Полянке', address: 'Киев' }]);
+    const upsertRestaurant = vi.fn().mockResolvedValue({ id: 'restaurant-uuid-1' });
+    const syncMenu = vi.fn().mockResolvedValue(undefined);
+
+    await completeOAuthConnection(
+      { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
+      { account: 'mycafe', code: 'the-code' },
+    );
+
+    expect(syncMenu).toHaveBeenCalledWith({
+      restaurantId: 'restaurant-uuid-1',
+      posterToken: '687409:abc123',
+    });
+  });
+
+  it('still returns the connection result when the initial menu sync fails', async () => {
+    const exchangeOAuthCode = vi
+      .fn()
+      .mockResolvedValue({ accessToken: '687409:abc123', accountNumber: '687409' });
+    const getSpots = vi
+      .fn()
+      .mockResolvedValue([{ spotId: 1, name: 'Кафе на Полянке', address: 'Киев' }]);
+    const upsertRestaurant = vi.fn().mockResolvedValue({ id: 'restaurant-uuid-1' });
+    const syncMenu = vi.fn().mockRejectedValue(new Error('Poster is down'));
+
+    const result = await completeOAuthConnection(
+      { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
+      { account: 'mycafe', code: 'the-code' },
+    );
+
+    expect(result).toEqual({ restaurantName: 'Кафе на Полянке', restaurantId: 'restaurant-uuid-1' });
+  });
+
   it('throws without upserting when the account has no spots', async () => {
     const exchangeOAuthCode = vi
       .fn()
       .mockResolvedValue({ accessToken: 'tok', accountNumber: '687409' });
     const getSpots = vi.fn().mockResolvedValue([]);
     const upsertRestaurant = vi.fn();
+    const syncMenu = vi.fn();
 
     await expect(
       completeOAuthConnection(
-        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
         { account: 'mycafe', code: 'the-code' },
       ),
     ).rejects.toThrow('no spots');
     expect(upsertRestaurant).not.toHaveBeenCalled();
+    expect(syncMenu).not.toHaveBeenCalled();
   });
 
   it('propagates an exchangeOAuthCode failure without calling getSpots or upsertRestaurant', async () => {
@@ -49,15 +91,17 @@ describe('completeOAuthConnection', () => {
     const exchangeOAuthCode = vi.fn().mockRejectedValue(exchangeError);
     const getSpots = vi.fn();
     const upsertRestaurant = vi.fn();
+    const syncMenu = vi.fn();
 
     await expect(
       completeOAuthConnection(
-        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
         { account: 'mycafe', code: 'bad-code' },
       ),
     ).rejects.toThrow(exchangeError);
     expect(getSpots).not.toHaveBeenCalled();
     expect(upsertRestaurant).not.toHaveBeenCalled();
+    expect(syncMenu).not.toHaveBeenCalled();
   });
 
   it('propagates a getSpots failure without calling upsertRestaurant', async () => {
@@ -67,14 +111,16 @@ describe('completeOAuthConnection', () => {
     const spotsError = new Error('spots lookup failed');
     const getSpots = vi.fn().mockRejectedValue(spotsError);
     const upsertRestaurant = vi.fn();
+    const syncMenu = vi.fn();
 
     await expect(
       completeOAuthConnection(
-        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
         { account: 'mycafe', code: 'the-code' },
       ),
     ).rejects.toThrow(spotsError);
     expect(upsertRestaurant).not.toHaveBeenCalled();
+    expect(syncMenu).not.toHaveBeenCalled();
   });
 
   it('propagates an upsertRestaurant failure', async () => {
@@ -86,12 +132,14 @@ describe('completeOAuthConnection', () => {
       .mockResolvedValue([{ spotId: 1, name: 'Кафе на Полянке', address: 'Киев' }]);
     const upsertError = new Error('db write failed');
     const upsertRestaurant = vi.fn().mockRejectedValue(upsertError);
+    const syncMenu = vi.fn();
 
     await expect(
       completeOAuthConnection(
-        { exchangeOAuthCode, getSpots, upsertRestaurant },
+        { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu },
         { account: 'mycafe', code: 'the-code' },
       ),
     ).rejects.toThrow(upsertError);
+    expect(syncMenu).not.toHaveBeenCalled();
   });
 });

@@ -40,7 +40,7 @@ export default async function MenuPreview({
         <span className={styles.eyebrow}>Реальное меню · подключено через Poster</span>
         <h1 className={styles.restaurantName}>{restaurant?.name ?? "Меню не подключено"}</h1>
         <p className={styles.restaurantMeta}>
-          {table ? `Стол ${table}` : "Стол не определён"} · меню синхронизировано с кассой
+          {table ? `Стол ${table}` : "Стол не определён"} · меню из кассы Poster
         </p>
       </div>
 

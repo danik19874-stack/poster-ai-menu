@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { completeOAuthConnection } from '@/lib/oauth/completeOAuthConnection';
 import { exchangeOAuthCode, getSpots } from '@/lib/poster/oauth';
+import { getProducts, getProductIngredients } from '@/lib/poster/client';
+import { syncMenu } from '@/lib/menu/sync';
 import { PosterApiError } from '@/lib/poster/types';
 
 export async function GET(request: NextRequest) {
@@ -54,9 +56,17 @@ export async function GET(request: NextRequest) {
     return { id: data.id as string };
   }
 
+  async function syncMenuForRestaurant(args: { restaurantId: string; posterToken: string }) {
+    await syncMenu(
+      supabase,
+      { getProducts, getProductIngredients },
+      { restaurantId: args.restaurantId, posterToken: args.posterToken },
+    );
+  }
+
   try {
     const result = await completeOAuthConnection(
-      { exchangeOAuthCode, getSpots, upsertRestaurant },
+      { exchangeOAuthCode, getSpots, upsertRestaurant, syncMenu: syncMenuForRestaurant },
       { account, code },
     );
     const connectedUrl = new URL('/connected', request.url);

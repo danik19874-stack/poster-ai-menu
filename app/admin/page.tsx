@@ -1,8 +1,18 @@
+import { headers } from "next/headers";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import styles from "./admin.module.css";
 
 export default async function AdminDashboard() {
   const supabase = getSupabaseServerClient();
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  const protocol = headersList.get("x-forwarded-proto") ?? "https";
+  const origin = host ? `${protocol}://${host}` : "";
+
+  const { data: restaurants } = await supabase
+    .from("restaurants")
+    .select("id, name, created_at")
+    .order("created_at", { ascending: false });
 
   const { count: totalRestaurants } = await supabase
     .from("restaurants")
@@ -61,6 +71,48 @@ export default async function AdminDashboard() {
           <p className={styles.statLabel}>ИИ-запросов сегодня</p>
         </div>
       </div>
+
+      <h2 className={styles.sectionTitle}>Заведения</h2>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Название</th>
+            <th>Подключено</th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {(restaurants ?? []).map((restaurant) => (
+            <tr key={restaurant.id}>
+              <td>{restaurant.name}</td>
+              <td>{new Date(restaurant.created_at).toLocaleDateString("ru-RU")}</td>
+              <td>
+                <a
+                  href={`${origin}/connected?restaurant=${restaurant.id}&name=${encodeURIComponent(restaurant.name)}`}
+                  className={styles.toggleButton}
+                >
+                  Ссылка и QR
+                </a>
+              </td>
+              <td>
+                <form method="POST" action={`/api/admin/restaurants/${restaurant.id}/sync-menu`}>
+                  <button className={styles.toggleButton} type="submit">
+                    Обновить меню
+                  </button>
+                </form>
+              </td>
+            </tr>
+          ))}
+          {(restaurants ?? []).length === 0 && (
+            <tr>
+              <td colSpan={4} className={styles.empty}>
+                Заведений пока нет.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
       <h2 className={styles.sectionTitle}>Ключи Gemini</h2>
       <table className={styles.table}>

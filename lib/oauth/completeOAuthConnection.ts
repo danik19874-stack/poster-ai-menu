@@ -10,6 +10,7 @@ export interface OAuthConnectionDeps {
     posterToken: string;
     name: string;
   }) => Promise<{ id: string }>;
+  syncMenu: (args: { restaurantId: string; posterToken: string }) => Promise<void>;
 }
 
 export async function completeOAuthConnection(
@@ -34,6 +35,16 @@ export async function completeOAuthConnection(
     posterToken: accessToken,
     name: spot.name,
   });
+
+  try {
+    await deps.syncMenu({ restaurantId: id, posterToken: accessToken });
+  } catch (err) {
+    // The restaurant is already connected at this point — a flaky initial
+    // menu sync (Poster network blip, rate limit) must not undo that or
+    // block the owner from landing on the success page. Log and move on;
+    // the admin "Обновить меню" button covers a manual retry.
+    console.error('completeOAuthConnection: initial menu sync failed:', err);
+  }
 
   return { restaurantName: spot.name, restaurantId: id };
 }
