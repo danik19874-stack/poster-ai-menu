@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
-import { pickAvailableKey, recordKeyUsage } from '@/lib/gemini/keyPool';
+import { callGeminiWithFallback, NoAvailableKeyError } from '@/lib/gemini/callWithFallback';
 import type { GeminiKey } from '@/lib/gemini/keyPool';
 import { callGeminiJson, GeminiApiError } from '@/lib/gemini/client';
 import { buildDishAnswer, DISH_ANSWER_SCHEMA } from '@/lib/ai/dishAnswer';
@@ -8,8 +8,6 @@ import type { CartLine } from '@/lib/ai/dishAnswer';
 
 const SERVICE_OVERLOADED_MESSAGE =
   'Сейчас сервис перегружен, попробуйте через минуту или уточните у официанта.';
-
-class NoAvailableKeyError extends Error {}
 
 interface IngredientRef {
   name: string;
@@ -55,20 +53,15 @@ export async function POST(request: NextRequest) {
   const ingredients = ((item.ingredients as IngredientRef[] | null) ?? []).map((i) => i.name);
 
   async function callModel(systemInstruction: string, userMessage: string): Promise<unknown> {
-    const key = await pickAvailableKey({
-      getActiveKeys: () => getActiveGeminiKeys(supabase),
-      resetDailyUsage: (keyId) => resetGeminiKeyForNewDay(supabase, keyId),
-    });
-
-    if (!key) {
-      throw new NoAvailableKeyError('All Gemini keys exhausted for today');
-    }
-
-    const answer = await callGeminiJson(key.apiKey, systemInstruction, userMessage, DISH_ANSWER_SCHEMA);
-
-    await recordKeyUsage(
-      { incrementUsage: (id, requestsToday) => setGeminiKeyRequestsToday(supabase, id, requestsToday) },
-      key,
+    const answer = await callGeminiWithFallback(
+      {
+        getActiveKeys: () => getActiveGeminiKeys(supabase),
+        resetDailyUsage: (keyId) => resetGeminiKeyForNewDay(supabase, keyId),
+        incrementUsage: (id, requestsToday) => setGeminiKeyRequestsToday(supabase, id, requestsToday),
+        callModel: (key, sys, msg) => callGeminiJson(key.apiKey, key.model, sys, msg, DISH_ANSWER_SCHEMA),
+      },
+      systemInstruction,
+      userMessage,
     );
 
     try {
@@ -112,13 +105,15 @@ async function getActiveGeminiKeys(
 ): Promise<GeminiKey[]> {
   const { data } = await supabase
     .from('gemini_api_keys')
-    .select('id, api_key, daily_limit, requests_today, usage_date')
+    .select('id, api_key, model, daily_limit, requests_today, usage_date')
     .eq('is_active', true)
+    .order('priority', { ascending: true })
     .order('created_at', { ascending: true });
 
   return (data ?? []).map((k) => ({
     id: k.id,
     apiKey: k.api_key,
+    model: k.model,
     dailyLimit: k.daily_limit,
     requestsToday: k.requests_today,
     usageDate: k.usage_date,

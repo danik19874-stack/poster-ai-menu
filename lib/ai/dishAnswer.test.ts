@@ -131,4 +131,11 @@ describe('buildSystemInstruction', () => {
 
     expect(instruction).not.toContain('корзина');
   });
+
+  it('instructs the model to generalize allergen categories instead of matching ingredient names literally', () => {
+    const instruction = buildSystemInstruction(CROISSANT, []);
+
+    expect(instruction.toLowerCase()).toContain('аллерг');
+    expect(instruction.toLowerCase()).toContain('сыр');
+  });
 });

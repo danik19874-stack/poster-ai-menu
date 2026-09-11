@@ -8,6 +8,7 @@ function makeKey(overrides: Partial<GeminiKey> = {}): GeminiKey {
   return {
     id: 'key-1',
     apiKey: 'secret-1',
+    model: 'gemini-3.1-flash-lite',
     dailyLimit: 1500,
     requestsToday: 0,
     usageDate: TODAY,
@@ -53,7 +54,14 @@ describe('pickAvailableKey', () => {
 
     const picked = await pickAvailableKey(deps, TODAY);
 
-    expect(picked).toEqual({ id: 'a', apiKey: 'secret-1', dailyLimit: 1500, requestsToday: 0, usageDate: TODAY });
+    expect(picked).toEqual({
+      id: 'a',
+      apiKey: 'secret-1',
+      model: 'gemini-3.1-flash-lite',
+      dailyLimit: 1500,
+      requestsToday: 0,
+      usageDate: TODAY,
+    });
     expect(resetDailyUsage).toHaveBeenCalledWith('a');
   });
 
@@ -61,6 +69,24 @@ describe('pickAvailableKey', () => {
     const deps = { getActiveKeys: vi.fn().mockResolvedValue([]), resetDailyUsage: vi.fn() };
 
     expect(await pickAvailableKey(deps, TODAY)).toBeNull();
+  });
+
+  it('skips ids in excludeIds even if they still have budget', async () => {
+    const keys = [makeKey({ id: 'a' }), makeKey({ id: 'b' })];
+    const deps = { getActiveKeys: vi.fn().mockResolvedValue(keys), resetDailyUsage: vi.fn() };
+
+    const picked = await pickAvailableKey(deps, TODAY, new Set(['a']));
+
+    expect(picked?.id).toBe('b');
+  });
+
+  it('returns null when every candidate is excluded', async () => {
+    const keys = [makeKey({ id: 'a' }), makeKey({ id: 'b' })];
+    const deps = { getActiveKeys: vi.fn().mockResolvedValue(keys), resetDailyUsage: vi.fn() };
+
+    const picked = await pickAvailableKey(deps, TODAY, new Set(['a', 'b']));
+
+    expect(picked).toBeNull();
   });
 });
 

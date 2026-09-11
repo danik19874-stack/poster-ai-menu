@@ -29,6 +29,102 @@ const MENU: MenuContext = {
   ],
 };
 
+describe('buildMenuRecommendation allergen safety', () => {
+  it('never calls the model when a named allergy would exclude every item, and returns a safe fallback', async () => {
+    const callModel = vi.fn();
+    const onlyDairyMenu: MenuContext = {
+      restaurantName: 'Частное Лицо',
+      items: [
+        {
+          name: 'Капучино 250 мл',
+          price: 1200,
+          categoryName: 'Кофе',
+          ingredientsKnown: true,
+          ingredients: ['вода', 'кофе', 'молоко'],
+        },
+      ],
+    };
+
+    const result = await buildMenuRecommendation(
+      { callModel },
+      onlyDairyMenu,
+      [],
+      'У меня аллергия на молоко, что можно взять?',
+    );
+
+    expect(callModel).not.toHaveBeenCalled();
+    expect(result.usedModel).toBe(false);
+    expect(result.answer).toMatch(/официант/i);
+  });
+
+  it('excludes allergen-category items from the prompt entirely before calling the model', async () => {
+    const menuWithADairyFreeOption: MenuContext = {
+      restaurantName: 'Частное Лицо',
+      items: [
+        ...MENU.items,
+        {
+          name: 'Плов по-узбекски',
+          price: 2800,
+          categoryName: 'Горячие блюда',
+          ingredientsKnown: true,
+          ingredients: ['рис', 'баранина', 'морковь', 'лук'],
+        },
+      ],
+    };
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: ['Плов по-узбекски'],
+      answer: 'Возьмите плов по-узбекски.',
+    });
+
+    await buildMenuRecommendation(
+      { callModel },
+      menuWithADairyFreeOption,
+      [],
+      'У меня аллергия на молоко, что можно взять?',
+    );
+
+    const systemInstruction = callModel.mock.calls[0][0] as string;
+    expect(systemInstruction).not.toContain('Капучино 250 мл');
+    expect(systemInstruction).not.toContain('Круассан с шоколадом');
+    expect(systemInstruction).toContain('Плов по-узбекски');
+  });
+
+  it('rejects a recommendation for an item that was supposed to be filtered out (defense in depth)', async () => {
+    const menuWithADairyFreeOption: MenuContext = {
+      restaurantName: 'Частное Лицо',
+      items: [
+        ...MENU.items,
+        {
+          name: 'Плов по-узбекски',
+          price: 2800,
+          categoryName: 'Горячие блюда',
+          ingredientsKnown: true,
+          ingredients: ['рис', 'баранина', 'морковь', 'лук'],
+        },
+      ],
+    };
+    // Model misbehaves and recommends the dairy item anyway, despite it being
+    // absent from the prompt it was given — this covers the backstop, not the
+    // filtering itself.
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: ['Капучино 250 мл'],
+      answer: 'Возьмите капучино.',
+    });
+
+    const result = await buildMenuRecommendation(
+      { callModel },
+      menuWithADairyFreeOption,
+      [],
+      'У меня аллергия на молоко, что можно взять?',
+    );
+
+    expect(result.answer).not.toContain('капучино');
+    expect(result.answer).toMatch(/официант|сами/i);
+  });
+});
+
 describe('buildMenuRecommendation', () => {
   it('never calls the model when the menu has no available items, and returns a safe fallback', async () => {
     const callModel = vi.fn();
@@ -177,5 +273,11 @@ describe('buildMenuSystemInstruction', () => {
     const instruction = buildMenuSystemInstruction(MENU, []);
 
     expect(instruction.toLowerCase()).toContain('аллерг');
+  });
+
+  it('instructs the model to generalize allergen categories instead of matching ingredient names literally', () => {
+    const instruction = buildMenuSystemInstruction(MENU, []);
+
+    expect(instruction.toLowerCase()).toContain('молочное');
   });
 });

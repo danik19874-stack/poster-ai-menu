@@ -37,8 +37,9 @@ export default async function AdminDashboard() {
 
   const { data: keys } = await supabase
     .from("gemini_api_keys")
-    .select("id, label, daily_limit, requests_today, usage_date, is_active")
-    .order("created_at", { ascending: true });
+    .select("id, label, model, daily_limit, requests_today, usage_date, is_active")
+    .order("label", { ascending: true })
+    .order("priority", { ascending: true });
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -119,6 +120,7 @@ export default async function AdminDashboard() {
         <thead>
           <tr>
             <th>Название</th>
+            <th>Модель</th>
             <th>Использовано сегодня</th>
             <th>Статус</th>
             <th></th>
@@ -131,6 +133,7 @@ export default async function AdminDashboard() {
             return (
               <tr key={key.id}>
                 <td>{key.label}</td>
+                <td>{key.model}</td>
                 <td>
                   {usedToday} / {key.daily_limit}
                 </td>
@@ -154,7 +157,7 @@ export default async function AdminDashboard() {
           })}
           {(keys ?? []).length === 0 && (
             <tr>
-              <td colSpan={5} className={styles.empty}>
+              <td colSpan={6} className={styles.empty}>
                 Ключей пока нет — добавьте первый ниже.
               </td>
             </tr>
@@ -163,10 +166,13 @@ export default async function AdminDashboard() {
       </table>
 
       <h2 className={styles.sectionTitle}>Добавить ключ</h2>
+      <p className={styles.hint}>
+        Один настоящий ключ Gemini добавляется один раз — он автоматически заведётся сразу под все
+        модели из цепочки (каждая модель на стороне Google считает лимит отдельно).
+      </p>
       <form className={styles.addForm} method="POST" action="/api/admin/keys">
         <input className={styles.input} name="label" placeholder="Название (например, «ключ 2»)" required />
         <input className={styles.input} name="api_key" placeholder="Значение ключа" required />
-        <input className={styles.input} name="daily_limit" type="number" placeholder="Дневной лимит (по умолчанию 1500)" />
         <button className={styles.button} type="submit">
           Добавить
         </button>

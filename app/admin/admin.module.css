@@ -107,6 +107,12 @@
   cursor: pointer;
 }
 
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: -6px 0 12px;
+}
+
 .addForm {
   display: flex;
   gap: 10px;

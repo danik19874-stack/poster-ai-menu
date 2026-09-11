@@ -5,18 +5,13 @@ export class GeminiApiError extends Error {
   }
 }
 
-/**
- * Verified free-tier-eligible on 11.09.2026 against ai.google.dev/gemini-api/docs/pricing.
- * Not a config option today — one model is enough for this narrow, single-dish task.
- */
-const GEMINI_MODEL = 'gemini-3.8-flash';
-
 interface RawGeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
 }
 
 export async function callGeminiJson(
   apiKey: string,
+  model: string,
   systemInstruction: string,
   userMessage: string,
   schema: Record<string, unknown>,
@@ -24,7 +19,7 @@ export async function callGeminiJson(
   let response: Response;
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

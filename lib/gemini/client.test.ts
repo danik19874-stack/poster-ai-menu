@@ -17,12 +17,12 @@ describe('callGeminiJson', () => {
       }),
     });
 
-    const result = await callGeminiJson('key', 'system', 'question', SCHEMA);
+    const result = await callGeminiJson('key', 'gemini-3.1-flash-lite', 'system', 'question', SCHEMA);
 
     expect(result).toEqual({ answer: 'hello' });
   });
 
-  it('sends the request to the generateContent endpoint with the API key as a query param', async () => {
+  it('sends the request to the generateContent endpoint for the given model, with the API key as a query param', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -30,10 +30,10 @@ describe('callGeminiJson', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await callGeminiJson('my-key', 'sys', 'msg', SCHEMA);
+    await callGeminiJson('my-key', 'gemini-3.8-flash', 'sys', 'msg', SCHEMA);
 
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toContain('generateContent?key=my-key');
+    expect(url).toContain('models/gemini-3.8-flash:generateContent?key=my-key');
     const body = JSON.parse(options.body as string);
     expect(body.system_instruction).toEqual({ parts: { text: 'sys' } });
     expect(body.contents).toEqual([{ parts: [{ text: 'msg' }] }]);
@@ -44,19 +44,25 @@ describe('callGeminiJson', () => {
   it('throws GeminiApiError on a non-ok response', async () => {
     mockFetchOnce({ ok: false, status: 429 });
 
-    await expect(callGeminiJson('key', 'sys', 'msg', SCHEMA)).rejects.toThrow(GeminiApiError);
+    await expect(
+      callGeminiJson('key', 'gemini-3.1-flash-lite', 'sys', 'msg', SCHEMA),
+    ).rejects.toThrow(GeminiApiError);
   });
 
   it('throws GeminiApiError with statusCode 0 on a network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
-    await expect(callGeminiJson('key', 'sys', 'msg', SCHEMA)).rejects.toMatchObject({ statusCode: 0 });
+    await expect(
+      callGeminiJson('key', 'gemini-3.1-flash-lite', 'sys', 'msg', SCHEMA),
+    ).rejects.toMatchObject({ statusCode: 0 });
   });
 
   it('throws GeminiApiError when the response has no candidates text', async () => {
     mockFetchOnce({ ok: true, status: 200, json: async () => ({ candidates: [] }) });
 
-    await expect(callGeminiJson('key', 'sys', 'msg', SCHEMA)).rejects.toThrow(GeminiApiError);
+    await expect(
+      callGeminiJson('key', 'gemini-3.1-flash-lite', 'sys', 'msg', SCHEMA),
+    ).rejects.toThrow(GeminiApiError);
   });
 
   it('throws GeminiApiError when the model text is not valid JSON', async () => {
@@ -66,6 +72,8 @@ describe('callGeminiJson', () => {
       json: async () => ({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] }),
     });
 
-    await expect(callGeminiJson('key', 'sys', 'msg', SCHEMA)).rejects.toThrow(GeminiApiError);
+    await expect(
+      callGeminiJson('key', 'gemini-3.1-flash-lite', 'sys', 'msg', SCHEMA),
+    ).rejects.toThrow(GeminiApiError);
   });
 });

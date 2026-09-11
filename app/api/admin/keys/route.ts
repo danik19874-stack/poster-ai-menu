@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { GEMINI_MODEL_CHAIN } from '@/lib/gemini/models';
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const label = String(formData.get('label') ?? '').trim();
   const apiKey = String(formData.get('api_key') ?? '').trim();
-  const dailyLimitRaw = Number(formData.get('daily_limit'));
-  const dailyLimit = Number.isFinite(dailyLimitRaw) && dailyLimitRaw > 0 ? dailyLimitRaw : 1500;
 
   if (!label || !apiKey) {
     return NextResponse.redirect(new URL('/admin?error=missing_fields', request.url), 303);
   }
 
   const supabase = getSupabaseServerClient();
-  await supabase.from('gemini_api_keys').insert({ label, api_key: apiKey, daily_limit: dailyLimit });
+  // One real Gemini key is metered separately per model on Google's side, so a
+  // single "add key" submission becomes one row per model in the fallback chain —
+  // see lib/gemini/models.ts. The daily_limit field was removed from the form
+  // because each model tier has its own verified, real limit; a single number
+  // here could never be right for all of them at once.
+  await supabase.from('gemini_api_keys').insert(
+    GEMINI_MODEL_CHAIN.map((tier) => ({
+      label,
+      api_key: apiKey,
+      model: tier.model,
+      daily_limit: tier.dailyLimit,
+      priority: tier.priority,
+    })),
+  );
 
   return NextResponse.redirect(new URL('/admin', request.url), 303);
 }

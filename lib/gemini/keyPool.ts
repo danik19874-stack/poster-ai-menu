@@ -1,6 +1,10 @@
 export interface GeminiKey {
   id: string;
   apiKey: string;
+  /** Real Gemini model id this row's quota tracks, e.g. "gemini-3.1-flash-lite" — each
+   *  model has its own independent daily quota on Google's side, even for the same
+   *  underlying API key, so one real key becomes several rows, one per model. */
+  model: string;
   dailyLimit: number;
   requestsToday: number;
   /** ISO date string, e.g. "2026-09-11" — the day requestsToday counts against. */
@@ -24,10 +28,13 @@ export function todayUtc(): string {
 export async function pickAvailableKey(
   deps: PickDeps,
   today: string = todayUtc(),
+  excludeIds: ReadonlySet<string> = new Set(),
 ): Promise<GeminiKey | null> {
   const keys = await deps.getActiveKeys();
 
   for (const key of keys) {
+    if (excludeIds.has(key.id)) continue;
+
     let requestsToday = key.requestsToday;
     let usageDate = key.usageDate;
 
