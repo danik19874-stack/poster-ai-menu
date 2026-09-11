@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { groupByCategory } from "@/lib/menu/groupByCategory";
 import CartBar from "./CartBar";
+import AskMenuRecommendation from "./AskMenuRecommendation";
 import styles from "./menu.module.css";
 
 export default async function MenuPreview({
@@ -43,6 +44,8 @@ export default async function MenuPreview({
           {table ? `Стол ${table}` : "Стол не определён"} · меню из кассы Poster
         </p>
       </div>
+
+      {items.length > 0 && <AskMenuRecommendation restaurantId={restaurantId} />}
 
       {groups.map((group) => (
         <section key={group.category ?? "_none"} className={styles.section}>

@@ -92,8 +92,8 @@ export default async function Home() {
       highlight: true,
     },
     { icon: "chat", title: tFeatures("item2Title"), text: tFeatures("item2Text") },
-    { icon: "star", title: tFeatures("item3Title"), text: tFeatures("item3Text") },
-    { icon: "chart", title: tFeatures("item4Title"), text: tFeatures("item4Text") },
+    { icon: "check", title: tFeatures("item3Title"), text: tFeatures("item3Text") },
+    { icon: "star", title: tFeatures("item4Title"), text: tFeatures("item4Text") },
   ];
 
   const steps = [

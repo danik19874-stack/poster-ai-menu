@@ -32,10 +32,10 @@
     "item1Text": "The guest sees the menu, picks a dish, and places the order themselves — right from their phone, without chasing a waiter mid-shift.",
     "item2Title": "Honest AI waiter",
     "item2Text": "Answers from your POS data. Doesn't know something? It says so — \"please check with your server\" — instead of making it up.",
-    "item3Title": "A menu that's never out of sync",
-    "item3Text": "Change a price or 86 a dish at the register — the guest sees it the very same second.",
-    "item4Title": "Recommendations, not just a list",
-    "item4Text": "The AI suggests a fitting dish for the order — like a good waiter, but every time, not only when there's time."
+    "item3Title": "Stop list checked before every order",
+    "item3Text": "Even if a dish just ran out, the order won't reach the kitchen anyway — the guest finds out right away and picks something else.",
+    "item4Title": "Recommends dishes for the whole table",
+    "item4Text": "A guest types \"there's three of us, what do you suggest\" — the AI puts together a mix of real dishes from the menu, not the same thing for everyone."
   },
   "HowItWorks": {
     "label": "How it works",
