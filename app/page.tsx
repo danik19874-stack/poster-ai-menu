@@ -10,23 +10,25 @@ const NAV_LINKS = [
 const FEATURES = [
   {
     icon: "bolt",
-    title: "Моментальный заказ",
-    text: "Гость сам выбирает блюда и оформляет заказ в пару кликов.",
+    title: "Заказ без ожидания официанта",
+    badge: "Главное",
+    text: "Гость видит меню, выбирает блюдо и оформляет заказ сам — прямо со своего телефона, не ловя официанта в разгар смены.",
+    highlight: true,
   },
   {
     icon: "chat",
-    title: "ИИ-официант",
-    text: "Расскажет о составе, предупредит про аллергены, ответит на вопросы.",
+    title: "Честный ИИ-официант",
+    text: "Отвечает по составу из вашей кассы. Не знает — так и скажет «уточните у официанта», а не придумает.",
   },
   {
     icon: "star",
-    title: "Актуальное меню",
-    text: "Фото, состав, цены — всё синхронизировано напрямую с кассой Poster.",
+    title: "Меню без рассинхрона",
+    text: "Поменяли цену или стоп-лист на кассе — гость увидел это в ту же секунду.",
   },
   {
     icon: "chart",
-    title: "Больше продаж",
-    text: "Удобный современный сервис повышает лояльность гостей и средний чек.",
+    title: "Рекомендации, а не просто список",
+    text: "ИИ подскажет блюдо в тему заказа — как хороший официант, но всегда, а не когда есть время.",
   },
 ];
 
@@ -50,20 +52,20 @@ const STEPS = [
 
 const BENEFITS = [
   {
-    title: "Довольные гости",
-    text: "Быстрый и честный ответ про состав — без ожидания и без риска для здоровья гостя.",
+    title: "Гость не рискует здоровьем",
+    text: "Честный ответ про аллерген вместо «наверное, орехов нет» от официанта, который не готовил блюдо сам.",
   },
   {
-    title: "Рост среднего чека",
-    text: "ИИ-консультант мягко подсказывает и рекомендует, гости заказывают больше.",
+    title: "Выше средний чек",
+    text: "ИИ ненавязчиво рекомендует к заказу — то же допродажа, что делает хороший официант, но без пропусков.",
   },
   {
-    title: "Меньше нагрузки на персонал",
-    text: "Официанты освобождаются от рутинных вопросов про состав и приёма заказа.",
+    title: "Официант — не справочник по составу",
+    text: "Рутинные вопросы про аллергены уходят к ИИ, персонал занят гостями, которым правда нужна помощь.",
   },
   {
-    title: "Лёгкая интеграция",
-    text: "Подключение через Poster за пару минут, без сложных настроек.",
+    title: "Подключение за пару минут",
+    text: "Через Poster, без интеграторов и технической настройки с вашей стороны.",
   },
 ];
 
@@ -137,7 +139,7 @@ const PRICING_ITEMS = [
   "ИИ-консультант по составу и аллергенам — без лимита на вопросы",
   "Приём заказа с QR прямо на кассу Poster",
   "Меню синхронизировано с кассой автоматически",
-  "14 дней бесплатно, дальше — один тариф без сюрпризов",
+  "Один тариф без ступеней и доплат за рост",
 ];
 
 export default function Home() {
@@ -177,8 +179,8 @@ export default function Home() {
               <span className={styles.titleAccent}>наслаждайся</span>
             </h1>
             <p className={styles.subtitle}>
-              Гости больше не ждут официанта. Они сами оформляют заказ и получают всю
-              информацию о блюдах — прямо в приложении заведения.
+              Пока гость ждёт официанта, чтобы спросить про орехи в соусе — он мог бы уже
+              сделать заказ. НеЖди отвечает и принимает заказ сам, пока вы заняты залом.
             </p>
             <div className={styles.heroActions}>
               <a className={styles.ctaPrimary} href="/api/oauth/start">
@@ -231,7 +233,11 @@ export default function Home() {
           <h2 className={styles.sectionTitle}>Всё, что нужно для удобного заказа</h2>
           <div className={styles.featureGrid}>
             {FEATURES.map((f) => (
-              <div key={f.title} className={styles.featureCard}>
+              <div
+                key={f.title}
+                className={f.highlight ? `${styles.featureCard} ${styles.featureCardHighlight}` : styles.featureCard}
+              >
+                {f.badge && <span className={styles.featureBadge}>{f.badge}</span>}
                 <div className={styles.featureIcon}>
                   <Icon name={f.icon} />
                 </div>
@@ -360,6 +366,7 @@ export default function Home() {
             <p className={styles.pricingPrice}>
               $15<span>/мес</span>
             </p>
+            <p className={styles.pricingSub}>≈ $0.5 в день — меньше чашки кофе</p>
             <p className={styles.pricingTrial}>Первые 14 дней бесплатно</p>
             <ul className={styles.pricingList}>
               {PRICING_ITEMS.map((item) => (
@@ -372,6 +379,9 @@ export default function Home() {
             <a className={styles.ctaPrimary} href="/api/oauth/start">
               Подключить виджет →
             </a>
+            <p className={styles.pricingAnchor}>
+              Дешевле, чем платный QR-виджет и ИИ-инструмент по отдельности
+            </p>
           </div>
         </div>
       </section>
@@ -387,14 +397,14 @@ export default function Home() {
               </div>
             </div>
             <div className={styles.ctaBannerCopy}>
-              <p className={styles.ctaBannerTitle}>Подключите виджет уже сегодня</p>
-              <p className={styles.ctaBannerText}>Сделайте ваш сервис ещё удобнее и современнее.</p>
+              <p className={styles.ctaBannerTitle}>Попробуйте без риска</p>
+              <p className={styles.ctaBannerText}>14 дней бесплатно. Не подошло — отключите в один клик, ничего не платите.</p>
             </div>
             <div className={styles.ctaBannerAction}>
               <a className={styles.ctaDark} href="/api/oauth/start">
                 Подключить в Joinposter →
               </a>
-              <p className={styles.ctaBannerNote}>$15/мес · 14 дней бесплатно</p>
+              <p className={styles.ctaBannerNote}>$15/мес после пробного периода</p>
             </div>
           </div>
         </div>
