@@ -82,11 +82,7 @@ export default async function DishDetail({
         />
       </div>
 
-      <AskAboutDish
-        dishName={item.name}
-        ingredientsKnown={item.ingredients_known}
-        ingredientNames={ingredients.map((i) => i.name)}
-      />
+      <AskAboutDish restaurantId={restaurantId} itemId={item.id} dishName={item.name} />
     </div>
   );
 }

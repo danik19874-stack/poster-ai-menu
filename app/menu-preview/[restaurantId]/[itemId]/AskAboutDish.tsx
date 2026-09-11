@@ -1,39 +1,51 @@
 "use client";
 
 import { useState } from "react";
+import { useCart } from "../CartContext";
 import styles from "./detail.module.css";
 
 interface Props {
+  restaurantId: string;
+  itemId: string;
   dishName: string;
-  ingredientsKnown: boolean;
-  ingredientNames: string[];
 }
 
-/**
- * Deterministic stand-in for the real AI chat (Plan 2, not built yet). No
- * LLM call — just enforces the one non-negotiable rule up front: never
- * claim ingredients we don't actually have, always defer to staff when
- * data is missing. Lets us test the safety contract on real synced data
- * before the real AI layer exists.
- */
-export default function AskAboutDish({ dishName, ingredientsKnown, ingredientNames }: Props) {
+export default function AskAboutDish({ restaurantId, itemId, dishName }: Props) {
+  const cart = useCart();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || status === "loading") return;
 
-    if (!ingredientsKnown) {
-      setAnswer(
-        `Пока нет точных данных о составе блюда «${dishName}» — не хочу гадать и рисковать с аллергенами. Уточните у официанта, он подтвердит на кассе.`,
-      );
-      return;
+    setStatus("loading");
+    setAnswer(null);
+
+    try {
+      const res = await fetch("/api/ask-dish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          itemId,
+          question,
+          cart: cart.items.map((item) => ({ name: item.name, qty: item.qty })),
+        }),
+      });
+
+      if (!res.ok) {
+        setStatus("error");
+        return;
+      }
+
+      const data = (await res.json()) as { answer: string };
+      setAnswer(data.answer);
+      setStatus("idle");
+    } catch {
+      setStatus("error");
     }
-
-    setAnswer(
-      `В составе «${dishName}»: ${ingredientNames.join(", ")}. Данные об аллергенах отдельно не отмечены — если для вас критично, всё равно уточните у официанта.`,
-    );
   }
 
   return (
@@ -44,15 +56,25 @@ export default function AskAboutDish({ dishName, ingredientsKnown, ingredientNam
           <p>{answer}</p>
         </div>
       )}
+      {status === "error" && (
+        <p className={styles.unknownNotice}>
+          Не получилось получить ответ — попробуйте ещё раз или спросите у официанта.
+        </p>
+      )}
       <form className={styles.askForm} onSubmit={handleSubmit}>
         <input
           className={styles.askInput}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Спросить про состав или аллергены"
+          placeholder={`Спросить про «${dishName}»`}
+          disabled={status === "loading"}
         />
-        <button className={styles.askButton} type="submit" disabled={!question.trim()}>
-          Спросить
+        <button
+          className={styles.askButton}
+          type="submit"
+          disabled={!question.trim() || status === "loading"}
+        >
+          {status === "loading" ? "…" : "Спросить"}
         </button>
       </form>
     </div>
