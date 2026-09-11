@@ -1,13 +1,27 @@
 .page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--background);
   padding: 24px;
+  overflow: hidden;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 50% at 12% 8%, var(--accent-soft) 0%, transparent 62%),
+    radial-gradient(50% 45% at 92% 88%, var(--accent-soft) 0%, transparent 65%);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .main {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -31,6 +45,7 @@
   font-size: clamp(28px, 6vw, 36px);
   font-weight: 700;
   letter-spacing: -0.02em;
+  text-wrap: balance;
   margin: 0;
 }
 
@@ -42,6 +57,8 @@
 }
 
 .cta {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -51,11 +68,57 @@
   color: white;
   font-weight: 600;
   font-size: 15px;
-  padding: 14px 24px;
+  padding: 14px 28px;
   border-radius: 999px;
+  box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--accent) 65%, transparent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -6px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+.cta:active {
+  transform: translateY(0);
+}
+
+.cta::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  animation: shimmer 3.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -60%;
+  }
+  35% {
+    left: 130%;
+  }
+  100% {
+    left: 130%;
+  }
 }
 
 .adminLink {
   font-size: 13px;
   color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta::after {
+    animation: none;
+    display: none;
+  }
+
+  .cta:hover {
+    transform: none;
+  }
 }
