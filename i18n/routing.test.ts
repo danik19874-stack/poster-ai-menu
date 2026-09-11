@@ -13,4 +13,8 @@ describe('i18n routing config', () => {
   it('does not prefix the default locale in the URL', () => {
     expect(routing.localePrefix).toBe('as-needed');
   });
+
+  it('does not auto-detect locale from browser headers (QR codes must always serve the default locale)', () => {
+    expect(routing.localeDetection).toBe(false);
+  });
 });

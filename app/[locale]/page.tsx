@@ -124,7 +124,7 @@ export default async function Home() {
           <a href="#" className={styles.brand}>
             <img src="/brand/icon-nezhdi-mascot-mark-1024.png" alt="" className={styles.brandMark} />
             <span className={styles.brandText}>
-              НеЖди
+              {tHeader("brandName")}
               <span className={styles.brandSub}>{tHeader("brandSub")}</span>
             </span>
           </a>
