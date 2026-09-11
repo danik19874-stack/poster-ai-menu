@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="0.42" cy="0.32" r="0.9">
+      <stop offset="0%" stop-color="#3a2a1c" />
+      <stop offset="45%" stop-color="#1f1712" />
+      <stop offset="100%" stop-color="#100c09" />
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ff8c3a" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#ff8c3a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="headGrad" x1="196" y1="196" x2="404" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#332a22" />
+      <stop offset="100%" stop-color="#0d0a08" />
+    </linearGradient>
+    <linearGradient id="domeGrad" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#cabe9f" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff7a1a" />
+      <stop offset="100%" stop-color="#ffb056" />
+    </linearGradient>
+    <clipPath id="rounded"><rect x="0" y="0" width="512" height="512" rx="114" ry="114" /></clipPath>
+    <filter id="blurSm"><feGaussianBlur stdDeviation="8" /></filter>
+    <filter id="blurLg"><feGaussianBlur stdDeviation="22" /></filter>
+    <filter id="mascotShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+  </defs>
+  <g clip-path="url(#rounded)">
+    <rect x="0" y="0" width="512" height="512" fill="url(#bg)" />
+    <g filter="url(#blurSm)" opacity="0.5">
+      <circle cx="80" cy="130" r="28" fill="#ffb056" />
+      <circle cx="440" cy="110" r="20" fill="#ff7a1a" />
+      <circle cx="452" cy="360" r="32" fill="#ffb056" />
+      <circle cx="56" cy="400" r="22" fill="#ff7a1a" />
+      <circle cx="256" cy="66" r="16" fill="#ffb056" />
+    </g>
+    <ellipse cx="300" cy="280" rx="175" ry="160" fill="url(#halo)" filter="url(#blurLg)" />
+    <ellipse cx="298" cy="410" rx="120" ry="18" fill="#000000" opacity="0.35" filter="url(#blurSm)" />
+    <g filter="url(#mascotShadow)">
+      <circle cx="300" cy="300" r="104" fill="url(#headGrad)" />
+      <path d="M 366,364 Q 396,366 391,394 Q 365,389 356,365 Z" fill="url(#headGrad)" />
+      <g transform="rotate(-6 300 216)">
+        <path d="M 178,216 A 126,108 0 0 1 422,216 Z" fill="url(#domeGrad)" />
+        <ellipse cx="300" cy="216" rx="132" ry="18" fill="#b9ac8c" />
+        <ellipse cx="300" cy="220" rx="120" ry="11" fill="#1a130c" opacity="0.28" filter="url(#blurSm)" />
+        <circle cx="300" cy="112" r="15" fill="url(#domeGrad)" />
+      </g>
+      <ellipse cx="257" cy="264" rx="30" ry="17" fill="#4a4038" opacity="0.4" />
+      <circle cx="266" cy="312" r="15" fill="#f8f1e4" />
+      <circle cx="334" cy="312" r="15" fill="#f8f1e4" />
+    </g>
+    <g>
+      <rect x="34" y="252" width="80" height="17" rx="8.5" fill="url(#orangeGrad)" opacity="0.55" />
+      <rect x="54" y="281" width="64" height="17" rx="8.5" fill="url(#orangeGrad)" opacity="0.75" />
+      <rect x="72" y="310" width="46" height="17" rx="8.5" fill="url(#orangeGrad)" />
+    </g>
+  </g>
+</svg>
