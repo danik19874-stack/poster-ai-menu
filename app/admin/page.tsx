@@ -8,11 +8,12 @@ export default async function AdminDashboard() {
     .from("restaurants")
     .select("*", { count: "exact", head: true });
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
   const { data: recentActivity } = await supabase
     .from("activity_log")
     .select("restaurant_id")
-    .gte("created_at", thirtyDaysAgo);
+    .gte("created_at", thirtyDaysAgo.toISOString());
   const activeRestaurants30d = new Set((recentActivity ?? []).map((r) => r.restaurant_id)).size;
 
   const startOfToday = new Date();
