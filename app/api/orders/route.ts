@@ -71,6 +71,14 @@ export async function POST(request: NextRequest) {
         items: items as CreateIncomingOrderItem[],
       },
     );
+
+    try {
+      await supabase.from('activity_log').insert({ restaurant_id: restaurantId, kind: 'order' });
+    } catch (logError) {
+      // Analytics logging must never fail an order that already succeeded in Poster.
+      console.error('Failed to record activity_log for order:', logError);
+    }
+
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof PosterApiError && error.statusCode === 0) {
