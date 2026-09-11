@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "../CartContext";
 import styles from "./cart.module.css";
@@ -16,11 +16,11 @@ export default function CartPage({
   const [orderId, setOrderId] = useState<number | null>(null);
 
   // params is a Promise in this Next.js version even in client components;
-  // resolve it once on mount rather than making the whole component async
+  // resolve it in an Effect rather than making the whole component async
   // (client components can't be async functions).
-  useState(() => {
+  useEffect(() => {
     params.then((p) => setRestaurantId(p.restaurantId));
-  });
+  }, [params]);
 
   const menuHref = restaurantId
     ? `/menu-preview/${restaurantId}${cart.table ? `?table=${cart.table}` : ""}`
