@@ -100,4 +100,28 @@ export async function syncMenu(
   if (error) {
     throw new Error(`Failed to sync menu: ${error.message}`);
   }
+
+  // Poster's product list is the source of truth: a dish removed/renamed at the
+  // register must disappear from the guest menu too, or a guest can add an
+  // item to their order that Poster will then reject at checkout. An empty
+  // `rows` almost always means a transient API hiccup, not the owner
+  // deliberately emptying their whole menu — wiping everything on that signal
+  // would be worse than leaving stale data, so skip the delete and log instead.
+  if (rows.length === 0) {
+    console.error(
+      `syncMenu: Poster returned 0 sellable products for restaurant ${args.restaurantId} — skipping stale-item cleanup to avoid wiping the cached menu on a possible transient response.`,
+    );
+    return;
+  }
+
+  const currentProductIds = rows.map((row) => row.poster_product_id);
+  const { error: deleteError } = await supabase
+    .from('menu_items')
+    .delete()
+    .eq('restaurant_id', args.restaurantId)
+    .not('poster_product_id', 'in', `(${currentProductIds.join(',')})`);
+
+  if (deleteError) {
+    throw new Error(`Failed to remove stale menu items: ${deleteError.message}`);
+  }
 }
