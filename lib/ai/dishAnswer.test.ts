@@ -154,4 +154,10 @@ describe('buildSystemInstruction', () => {
 
     expect(instruction).not.toMatch(/описание заведения/i);
   });
+
+  it('instructs the model to keep answers short', () => {
+    const instruction = buildSystemInstruction(CROISSANT, []);
+
+    expect(instruction.toLowerCase()).toMatch(/кратк|коротк/);
+  });
 });

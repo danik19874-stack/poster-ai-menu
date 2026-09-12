@@ -299,4 +299,16 @@ describe('buildMenuSystemInstruction', () => {
 
     expect(instruction).not.toMatch(/описание заведения/i);
   });
+
+  it('instructs the model not to push recommendations on a bare greeting', () => {
+    const instruction = buildMenuSystemInstruction(MENU, []);
+
+    expect(instruction.toLowerCase()).toContain('приветств');
+  });
+
+  it('instructs the model to keep answers short', () => {
+    const instruction = buildMenuSystemInstruction(MENU, []);
+
+    expect(instruction.toLowerCase()).toMatch(/кратк|коротк/);
+  });
 });

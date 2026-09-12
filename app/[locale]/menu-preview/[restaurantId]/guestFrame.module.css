@@ -1,0 +1,27 @@
+/*
+ * Guest pages are designed for a phone screen (QR scan → menu on a phone).
+ * On a wide viewport (recording on a desktop browser, a moderator reviewing
+ * on a monitor) that same layout just stretches edge-to-edge and looks
+ * broken. Above the breakpoint, center it as a fixed-width column on a
+ * neutral backdrop instead of changing the page layout itself.
+ */
+.frame {
+  min-height: 100vh;
+}
+
+@media (min-width: 560px) {
+  .frame {
+    display: flex;
+    justify-content: center;
+    background: var(--border);
+    padding-block: 40px;
+  }
+
+  .frame > * {
+    width: 100%;
+    max-width: 430px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+}

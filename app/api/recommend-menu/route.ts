@@ -80,11 +80,14 @@ export async function POST(request: NextRequest) {
       userMessage,
     );
 
-    try {
-      await supabase.from('activity_log').insert({ restaurant_id: restaurantId, kind: 'ai_query' });
-    } catch (logError) {
-      console.error('Failed to record activity_log for ai_query:', logError);
-    }
+    // Fire-and-forget: analytics logging must never add latency to an answer
+    // that's already ready, and its failure must never fail the request.
+    supabase
+      .from('activity_log')
+      .insert({ restaurant_id: restaurantId, kind: 'ai_query' })
+      .then(({ error }) => {
+        if (error) console.error('Failed to record activity_log for ai_query:', error);
+      });
 
     return answer;
   }
