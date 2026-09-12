@@ -145,6 +145,30 @@
   cursor: pointer;
 }
 
+.descriptionInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--lp-border);
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.descriptionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.descriptionError {
+  font-size: 13px;
+  color: var(--lp-accent);
+}
+
 .hint {
   color: var(--lp-ink-soft);
   font-size: 13px;

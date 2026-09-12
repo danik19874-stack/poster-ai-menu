@@ -1,5 +1,7 @@
 export interface DishContext {
   restaurantName: string;
+  /** Owner-entered free text (e.g. cuisine type) — empty string when unset, never invented. */
+  restaurantDescription: string;
   dishName: string;
   ingredientsKnown: boolean;
   ingredients: string[];
@@ -39,6 +41,9 @@ export function buildSystemInstruction(context: DishContext, cart: CartLine[]): 
     cart.length > 0
       ? `\nТекущая корзина гостя: ${cart.map((c) => `${c.name} x${c.qty}`).join(', ')}`
       : '';
+  const descriptionLine = context.restaurantDescription.trim()
+    ? `Описание заведения: ${context.restaurantDescription.trim()}`
+    : '';
 
   return [
     `Ты — ИИ-консультант ресторана «${context.restaurantName}». Отвечай от лица этого заведения, вежливо и по-русски.`,
@@ -50,6 +55,7 @@ export function buildSystemInstruction(context: DishContext, cart: CartLine[]): 
     '4. В mentioned_ingredients перечисли только те ингредиенты из списка ниже, которые ты упомянул в ответе, точными названиями из списка. Если не упоминал ни одного — пустой список.',
     '5. Если гость спрашивает про аллергию или непереносимость — не сверяй название буквально, а обобщай категорию: сыр/сливки/масло/йогурт/сметана — это молочное; пшеница/мука/хлеб/панировка — это глютен; арахис и любые орехи — отдельная категория. Если по составу видно совпадение с названной категорией — прямо предупреди об этом, а не промолчи.',
     '',
+    descriptionLine,
     `Название блюда: ${context.dishName}`,
     `Состав: ${context.ingredients.join(', ')}`,
     `В стоп-листе (сейчас недоступно гостям): ${context.inStopList ? 'да' : 'нет'}`,

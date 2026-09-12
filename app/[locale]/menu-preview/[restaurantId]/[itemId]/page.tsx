@@ -20,12 +20,15 @@ export default async function DishDetail({
   const { table } = await searchParams;
   const supabase = getSupabaseServerClient();
 
-  const { data: item } = await supabase
-    .from("menu_items")
-    .select("id, poster_product_id, name, description, price, ingredients, ingredients_known, photo_url")
-    .eq("id", itemId)
-    .eq("restaurant_id", restaurantId)
-    .single();
+  const [{ data: item }, { data: restaurant }] = await Promise.all([
+    supabase
+      .from("menu_items")
+      .select("id, poster_product_id, name, description, price, ingredients, ingredients_known, photo_url")
+      .eq("id", itemId)
+      .eq("restaurant_id", restaurantId)
+      .single(),
+    supabase.from("restaurants").select("name, description").eq("id", restaurantId).single(),
+  ]);
 
   if (!item) {
     notFound();
@@ -82,7 +85,13 @@ export default async function DishDetail({
         />
       </div>
 
-      <AskAboutDish restaurantId={restaurantId} itemId={item.id} dishName={item.name} />
+      <AskAboutDish
+        restaurantId={restaurantId}
+        itemId={item.id}
+        dishName={item.name}
+        restaurantName={restaurant?.name ?? ""}
+        restaurantDescription={restaurant?.description ?? ""}
+      />
     </div>
   );
 }

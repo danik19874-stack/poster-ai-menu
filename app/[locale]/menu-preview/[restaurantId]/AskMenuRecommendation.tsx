@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 import { useCart } from "./CartContext";
+import { buildGreeting } from "@/lib/ai/greeting";
 import styles from "./menu.module.css";
 
-export default function AskMenuRecommendation({ restaurantId }: { restaurantId: string }) {
+export default function AskMenuRecommendation({
+  restaurantId,
+  restaurantName,
+  restaurantDescription,
+}: {
+  restaurantId: string;
+  restaurantName: string;
+  restaurantDescription: string;
+}) {
   const cart = useCart();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -44,6 +53,9 @@ export default function AskMenuRecommendation({ restaurantId }: { restaurantId: 
   return (
     <div className={styles.recommendSection}>
       <p className={styles.recommendTitle}>Не знаете, что выбрать?</p>
+      {!answer && restaurantName && (
+        <p className={styles.greeting}>{buildGreeting(restaurantName, restaurantDescription)}</p>
+      )}
       <form className={styles.askForm} onSubmit={handleSubmit}>
         <input
           className={styles.askInput}

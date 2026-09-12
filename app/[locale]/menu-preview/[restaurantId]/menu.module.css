@@ -63,6 +63,12 @@
   margin: 0 0 10px;
 }
 
+.greeting {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 0 0 10px;
+}
+
 .askForm {
   display: flex;
   align-items: center;

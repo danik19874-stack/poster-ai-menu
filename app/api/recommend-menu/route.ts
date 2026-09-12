@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseServerClient();
 
   const [{ data: restaurant }, { data: items }] = await Promise.all([
-    supabase.from('restaurants').select('name').eq('id', restaurantId).single(),
+    supabase.from('restaurants').select('name, description').eq('id', restaurantId).single(),
     supabase
       .from('menu_items')
       .select('name, price, category_name, ingredients, ingredients_known')
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await buildMenuRecommendation(
       { callModel },
-      { restaurantName: restaurant.name, items: menuItems },
+      { restaurantName: restaurant.name, restaurantDescription: restaurant.description ?? '', items: menuItems },
       cart ?? [],
       question,
     );

@@ -10,6 +10,8 @@ export interface MenuItemSummary {
 
 export interface MenuContext {
   restaurantName: string;
+  /** Owner-entered free text (e.g. cuisine type) — empty string when unset, never invented. */
+  restaurantDescription: string;
   /** Caller's job to exclude stop-listed items before building this context — an
    *  unavailable dish should never even be visible to the model, not just
    *  discouraged in the prompt. */
@@ -60,6 +62,9 @@ export function buildMenuSystemInstruction(context: MenuContext, cart: CartLine[
       : 'состав неизвестен';
     return `- ${item.name} (${item.categoryName ?? 'без категории'}, ${item.price} ₸, ${composition})`;
   });
+  const descriptionLine = context.restaurantDescription.trim()
+    ? `Описание заведения: ${context.restaurantDescription.trim()}`
+    : '';
 
   return [
     `Ты — ИИ-консультант ресторана «${context.restaurantName}». Помогаешь гостю подобрать блюда из меню, отвечай вежливо и по-русски.`,
@@ -72,6 +77,7 @@ export function buildMenuSystemInstruction(context: MenuContext, cart: CartLine[
     '5. Если гость упомянул аллергию или непереносимость — не рекомендуй блюда с неизвестным составом или с этим аллергеном; для любого рекомендованного блюда с неизвестным составом явно предупреди об этом в ответе, не умалчивай. Сверяй не буквальное название, а категорию: сыр/сливки/масло/йогурт/сметана — это молочное; пшеница/мука/хлеб/панировка — это глютен; арахис и любые орехи — отдельная категория.',
     '6. Если гость указал количество человек — предложи сочетание из нескольких разных блюд/категорий на компанию, а не одно и то же блюдо много раз.',
     '',
+    descriptionLine,
     'Доступные блюда:',
     ...itemLines,
     cartLine,

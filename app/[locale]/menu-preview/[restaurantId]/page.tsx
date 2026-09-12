@@ -18,7 +18,7 @@ export default async function MenuPreview({
 
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("id, name")
+    .select("id, name, description")
     .eq("id", restaurantId)
     .single();
 
@@ -45,7 +45,13 @@ export default async function MenuPreview({
         </p>
       </div>
 
-      {items.length > 0 && <AskMenuRecommendation restaurantId={restaurantId} />}
+      {items.length > 0 && (
+        <AskMenuRecommendation
+          restaurantId={restaurantId}
+          restaurantName={restaurant?.name ?? ""}
+          restaurantDescription={restaurant?.description ?? ""}
+        />
+      )}
 
       {groups.map((group) => (
         <section key={group.category ?? "_none"} className={styles.section}>

@@ -4,6 +4,7 @@ import type { MenuContext } from './menuRecommendation';
 
 const MENU: MenuContext = {
   restaurantName: 'Частное Лицо',
+      restaurantDescription: '',
   items: [
     {
       name: 'Круассан с шоколадом',
@@ -34,6 +35,7 @@ describe('buildMenuRecommendation allergen safety', () => {
     const callModel = vi.fn();
     const onlyDairyMenu: MenuContext = {
       restaurantName: 'Частное Лицо',
+      restaurantDescription: '',
       items: [
         {
           name: 'Капучино 250 мл',
@@ -60,6 +62,7 @@ describe('buildMenuRecommendation allergen safety', () => {
   it('excludes allergen-category items from the prompt entirely before calling the model', async () => {
     const menuWithADairyFreeOption: MenuContext = {
       restaurantName: 'Частное Лицо',
+      restaurantDescription: '',
       items: [
         ...MENU.items,
         {
@@ -93,6 +96,7 @@ describe('buildMenuRecommendation allergen safety', () => {
   it('rejects a recommendation for an item that was supposed to be filtered out (defense in depth)', async () => {
     const menuWithADairyFreeOption: MenuContext = {
       restaurantName: 'Частное Лицо',
+      restaurantDescription: '',
       items: [
         ...MENU.items,
         {
@@ -279,5 +283,20 @@ describe('buildMenuSystemInstruction', () => {
     const instruction = buildMenuSystemInstruction(MENU, []);
 
     expect(instruction.toLowerCase()).toContain('молочное');
+  });
+
+  it('includes the restaurant description as context when it is set', () => {
+    const instruction = buildMenuSystemInstruction(
+      { ...MENU, restaurantDescription: 'гастрономический мир восточной кухни' },
+      [],
+    );
+
+    expect(instruction).toContain('гастрономический мир восточной кухни');
+  });
+
+  it('omits any description line when the restaurant has none set', () => {
+    const instruction = buildMenuSystemInstruction(MENU, []);
+
+    expect(instruction).not.toMatch(/описание заведения/i);
   });
 });

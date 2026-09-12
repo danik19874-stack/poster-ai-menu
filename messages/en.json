@@ -112,6 +112,11 @@
     "copied": "Copied",
     "download": "Download QR (PNG)",
     "hint": "Each table needs its own QR — just change the table number above and download again.",
+    "descriptionLabel": "Cuisine / venue description (optional)",
+    "descriptionPlaceholder": "E.g. a world of Eastern cuisine",
+    "descriptionSave": "Save",
+    "descriptionSaved": "Saved",
+    "descriptionError": "Couldn't save, please try again",
     "adminLink": "Go to admin →"
   }
 }

@@ -4,6 +4,7 @@ import type { DishContext } from './dishAnswer';
 
 const CROISSANT: DishContext = {
   restaurantName: 'Частное Лицо',
+  restaurantDescription: '',
   dishName: 'Круассан с шоколадом',
   ingredientsKnown: true,
   ingredients: ['мука', 'масло сливочное', 'шоколад', 'яйцо'],
@@ -137,5 +138,20 @@ describe('buildSystemInstruction', () => {
 
     expect(instruction.toLowerCase()).toContain('аллерг');
     expect(instruction.toLowerCase()).toContain('сыр');
+  });
+
+  it('includes the restaurant description as context when it is set', () => {
+    const instruction = buildSystemInstruction(
+      { ...CROISSANT, restaurantDescription: 'гастрономический мир восточной кухни' },
+      [],
+    );
+
+    expect(instruction).toContain('гастрономический мир восточной кухни');
+  });
+
+  it('omits any description line when the restaurant has none set', () => {
+    const instruction = buildSystemInstruction(CROISSANT, []);
+
+    expect(instruction).not.toMatch(/описание заведения/i);
   });
 });

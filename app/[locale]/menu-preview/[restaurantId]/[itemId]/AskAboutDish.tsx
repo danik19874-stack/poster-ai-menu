@@ -2,15 +2,24 @@
 
 import { useState } from "react";
 import { useCart } from "../CartContext";
+import { buildGreeting } from "@/lib/ai/greeting";
 import styles from "./detail.module.css";
 
 interface Props {
   restaurantId: string;
   itemId: string;
   dishName: string;
+  restaurantName: string;
+  restaurantDescription: string;
 }
 
-export default function AskAboutDish({ restaurantId, itemId, dishName }: Props) {
+export default function AskAboutDish({
+  restaurantId,
+  itemId,
+  dishName,
+  restaurantName,
+  restaurantDescription,
+}: Props) {
   const cart = useCart();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -50,6 +59,11 @@ export default function AskAboutDish({ restaurantId, itemId, dishName }: Props) 
 
   return (
     <div className={styles.askSection}>
+      {!answer && restaurantName && (
+        <div className={styles.answer}>
+          <p>{buildGreeting(restaurantName, restaurantDescription)}</p>
+        </div>
+      )}
       {answer && (
         <div className={styles.answer}>
           <p className={styles.answerLabel}>Ответ</p>

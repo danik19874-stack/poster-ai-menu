@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseServerClient();
 
   const [{ data: restaurant }, { data: item }] = await Promise.all([
-    supabase.from('restaurants').select('name').eq('id', restaurantId).single(),
+    supabase.from('restaurants').select('name, description').eq('id', restaurantId).single(),
     supabase
       .from('menu_items')
       .select('name, ingredients, ingredients_known, in_stop_list')
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       { callModel },
       {
         restaurantName: restaurant.name,
+        restaurantDescription: restaurant.description ?? '',
         dishName: item.name,
         ingredientsKnown: item.ingredients_known,
         ingredients,

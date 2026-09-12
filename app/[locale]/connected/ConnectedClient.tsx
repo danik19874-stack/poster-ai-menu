@@ -11,15 +11,21 @@ export default function ConnectedClient({
   origin,
   restaurantId,
   restaurantName,
+  initialDescription,
 }: {
   origin: string;
   restaurantId: string;
   restaurantName: string;
+  initialDescription: string;
 }) {
   const t = useTranslations("Connected");
   const [table, setTable] = useState(1);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [description, setDescription] = useState(initialDescription);
+  const [descriptionStatus, setDescriptionStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
 
   const link = origin && restaurantId ? buildMenuLink(origin, restaurantId, table) : "";
 
@@ -44,6 +50,26 @@ export default function ConnectedClient({
     await navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function handleSaveDescription() {
+    if (!restaurantId) return;
+    setDescriptionStatus("saving");
+    try {
+      const res = await fetch(`/api/restaurants/${restaurantId}/description`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      });
+      if (!res.ok) {
+        setDescriptionStatus("error");
+        return;
+      }
+      setDescriptionStatus("saved");
+      setTimeout(() => setDescriptionStatus("idle"), 1500);
+    } catch {
+      setDescriptionStatus("error");
+    }
   }
 
   return (
@@ -93,6 +119,31 @@ export default function ConnectedClient({
             >
               {t("download")}
             </a>
+          </div>
+        </div>
+
+        <div className={styles.field}>
+          <span>{t("descriptionLabel")}</span>
+          <textarea
+            className={styles.descriptionInput}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t("descriptionPlaceholder")}
+            maxLength={300}
+            rows={2}
+          />
+          <div className={styles.descriptionRow}>
+            <button
+              type="button"
+              onClick={handleSaveDescription}
+              className={styles.secondaryButton}
+              disabled={descriptionStatus === "saving"}
+            >
+              {descriptionStatus === "saved" ? t("descriptionSaved") : t("descriptionSave")}
+            </button>
+            {descriptionStatus === "error" && (
+              <span className={styles.descriptionError}>{t("descriptionError")}</span>
+            )}
           </div>
         </div>
 
