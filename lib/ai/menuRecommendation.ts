@@ -26,6 +26,7 @@ export interface CartLine {
 interface RawModelOutput {
   on_topic?: unknown;
   recommended_items?: unknown;
+  referenced_cart_items?: unknown;
   answer?: unknown;
 }
 
@@ -78,6 +79,7 @@ export function buildMenuSystemInstruction(context: MenuContext, cart: CartLine[
     '6. Если гость указал количество человек — предложи сочетание из нескольких разных блюд/категорий на компанию, а не одно и то же блюдо много раз.',
     '7. Если сообщение гостя — это просто приветствие, благодарность или общая фраза без явной просьбы посоветовать блюдо (гость не спросил совет, не указал число людей, не задал вопрос про меню) — ответь коротким дружелюбным приветствием и не предлагай блюда, пока гость сам не попросит. Наличие корзины у гостя — не повод самому напрашиваться с допродажей.',
     '8. Отвечай кратко: 1–2 предложения, если гость явно не попросил подробностей или сравнения нескольких блюд.',
+    '9. Не пересказывай словами, что именно лежит в корзине гостя (не пиши «вы уже выбрали X» и подобное) — используй корзину молча, только чтобы не предлагать то же самое блюдо ещё раз и подобрать удачное сочетание. Если всё же называешь что-то из корзины по имени — перечисли это в referenced_cart_items точными названиями из его реальной корзины ниже; если не называешь — оставь список пустым.',
     '',
     descriptionLine,
     'Доступные блюда:',
@@ -91,20 +93,27 @@ export const MENU_RECOMMENDATION_SCHEMA = {
   properties: {
     on_topic: { type: 'BOOLEAN' },
     recommended_items: { type: 'ARRAY', items: { type: 'STRING' } },
+    referenced_cart_items: { type: 'ARRAY', items: { type: 'STRING' } },
     answer: { type: 'STRING' },
   },
-  required: ['on_topic', 'recommended_items', 'answer'],
+  required: ['on_topic', 'recommended_items', 'referenced_cart_items', 'answer'],
 } as const;
 
-function isValidRawOutput(
-  raw: unknown,
-): raw is { on_topic: boolean; recommended_items: string[]; answer: string } {
+function isValidRawOutput(raw: unknown): raw is {
+  on_topic: boolean;
+  recommended_items: string[];
+  referenced_cart_items?: string[];
+  answer: string;
+} {
   if (typeof raw !== 'object' || raw === null) return false;
   const candidate = raw as RawModelOutput;
+  const referencedCartItems = candidate.referenced_cart_items ?? [];
   return (
     typeof candidate.on_topic === 'boolean' &&
     Array.isArray(candidate.recommended_items) &&
     candidate.recommended_items.every((i) => typeof i === 'string') &&
+    Array.isArray(referencedCartItems) &&
+    referencedCartItems.every((i) => typeof i === 'string') &&
     typeof candidate.answer === 'string'
   );
 }
@@ -146,6 +155,16 @@ export async function buildMenuRecommendation(
   );
 
   if (!allRecommendedAreReal) {
+    return { answer: VERIFICATION_FAILED_FALLBACK, usedModel: true };
+  }
+
+  const knownCartItemNames = new Set(cart.map((c) => c.name.trim().toLowerCase()));
+  const referencedCartItems = raw.referenced_cart_items ?? [];
+  const allReferencedCartItemsAreReal = referencedCartItems.every((name) =>
+    knownCartItemNames.has(name.trim().toLowerCase()),
+  );
+
+  if (!allReferencedCartItemsAreReal) {
     return { answer: VERIFICATION_FAILED_FALLBACK, usedModel: true };
   }
 

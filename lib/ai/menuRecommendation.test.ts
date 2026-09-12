@@ -244,6 +244,90 @@ describe('buildMenuRecommendation', () => {
   });
 });
 
+describe('buildMenuRecommendation cart-grounding safety', () => {
+  it('falls back when the model claims the guest already has an item that is not actually in their cart (hallucination)', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: [],
+      referenced_cart_items: ['Плов по-узбекски'],
+      answer: 'К вашему плову по-узбекски отлично подойдёт лимонад.',
+    });
+
+    const result = await buildMenuRecommendation(
+      { callModel },
+      MENU,
+      [{ name: 'Бургер с говядиной', qty: 1 }],
+      'я уже взял бургер, что ещё посоветуете?',
+    );
+
+    expect(result.usedModel).toBe(true);
+    expect(result.answer).not.toContain('плов');
+    expect(result.answer).toMatch(/официант|сами/i);
+  });
+
+  it('passes through when the referenced cart item genuinely matches the real cart', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: ['Круассан с шоколадом'],
+      referenced_cart_items: ['Бургер с говядиной'],
+      answer: 'К вашему бургеру с говядиной отлично подойдёт круассан на десерт.',
+    });
+
+    const result = await buildMenuRecommendation(
+      { callModel },
+      MENU,
+      [{ name: 'Бургер с говядиной', qty: 1 }],
+      'я уже взял бургер, что ещё посоветуете?',
+    );
+
+    expect(result.answer).toBe('К вашему бургеру с говядиной отлично подойдёт круассан на десерт.');
+  });
+
+  it('matches referenced cart items case-insensitively and ignores surrounding whitespace', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: [],
+      referenced_cart_items: [' бургер с говядиной '],
+      answer: 'К вашему бургеру подойдёт салат.',
+    });
+
+    const result = await buildMenuRecommendation(
+      { callModel },
+      MENU,
+      [{ name: 'Бургер с говядиной', qty: 1 }],
+      'я уже взял бургер, что ещё?',
+    );
+
+    expect(result.answer).toBe('К вашему бургеру подойдёт салат.');
+  });
+
+  it('treats a missing referenced_cart_items field as making no cart claim (backward compatible)', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: ['Круассан с шоколадом'],
+      answer: 'Возьмите круассан.',
+    });
+
+    const result = await buildMenuRecommendation({ callModel }, MENU, [], 'что посоветуете?');
+
+    expect(result.answer).toBe('Возьмите круассан.');
+  });
+
+  it('falls back when the model references a cart item while the guest cart is actually empty', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      on_topic: true,
+      recommended_items: [],
+      referenced_cart_items: ['Круассан с шоколадом'],
+      answer: 'К вашему круассану отлично подойдёт капучино.',
+    });
+
+    const result = await buildMenuRecommendation({ callModel }, MENU, [], 'что посоветуете?');
+
+    expect(result.usedModel).toBe(true);
+    expect(result.answer).toMatch(/официант|сами/i);
+  });
+});
+
 describe('buildMenuSystemInstruction', () => {
   it('lists every available item with its price and category', () => {
     const instruction = buildMenuSystemInstruction(MENU, []);
@@ -310,5 +394,11 @@ describe('buildMenuSystemInstruction', () => {
     const instruction = buildMenuSystemInstruction(MENU, []);
 
     expect(instruction.toLowerCase()).toMatch(/кратк|коротк/);
+  });
+
+  it('instructs the model to only claim cart items the guest actually has', () => {
+    const instruction = buildMenuSystemInstruction(MENU, []);
+
+    expect(instruction.toLowerCase()).toContain('referenced_cart_items');
   });
 });
