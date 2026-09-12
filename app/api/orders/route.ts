@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createTableOrder, StopListedItemsError } from '@/lib/orders/createTableOrder';
+import { validateOrderItems } from '@/lib/orders/validateOrderItems';
 import { createIncomingOrder, getProducts } from '@/lib/poster/client';
 import { PosterApiError } from '@/lib/poster/types';
 import type { CreateIncomingOrderItem } from '@/lib/poster/types';
+import { decrypt } from '@/lib/crypto/secretBox';
 
 async function getRestaurant(supabase: SupabaseClient, restaurantId: string) {
   const { data, error } = await supabase
@@ -16,7 +18,7 @@ async function getRestaurant(supabase: SupabaseClient, restaurantId: string) {
     throw new Error(`Restaurant not found: ${restaurantId}`);
   }
 
-  return { posterSpotId: data.poster_spot_id, posterToken: data.poster_token };
+  return { posterSpotId: data.poster_spot_id, posterToken: decrypt(data.poster_token) };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -52,6 +54,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let validatedItems: CreateIncomingOrderItem[];
+  try {
+    validatedItems = validateOrderItems(items);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Invalid items' },
+      { status: 400 },
+    );
+  }
+
   try {
     // Constructed per-request (not at module scope) so a missing env var fails this one
     // request cleanly instead of crashing the route on module load for every request.
@@ -69,7 +81,7 @@ export async function POST(request: NextRequest) {
       {
         restaurantId,
         tableLabel,
-        items: items as CreateIncomingOrderItem[],
+        items: validatedItems,
       },
     );
 

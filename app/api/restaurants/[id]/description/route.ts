@@ -16,11 +16,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const description = String(body.description ?? '').trim().slice(0, MAX_DESCRIPTION_LENGTH);
 
   const supabase = getSupabaseServerClient();
-  const { error } = await supabase.from('restaurants').update({ description }).eq('id', id);
+  const { data, error } = await supabase
+    .from('restaurants')
+    .update({ description })
+    .eq('id', id)
+    .select('id');
 
   if (error) {
     console.error('Failed to save restaurant description:', error);
     return NextResponse.json({ error: 'Failed to save description' }, { status: 500 });
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
   }
 
   return NextResponse.json({ description });

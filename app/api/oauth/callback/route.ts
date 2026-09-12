@@ -5,6 +5,7 @@ import { exchangeOAuthCode, getSpots } from '@/lib/poster/oauth';
 import { getProducts, getProductIngredients } from '@/lib/poster/client';
 import { syncMenu } from '@/lib/menu/sync';
 import { PosterApiError } from '@/lib/poster/types';
+import { encrypt } from '@/lib/crypto/secretBox';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         {
           poster_account_number: restaurant.posterAccountNumber,
           poster_spot_id: restaurant.posterSpotId,
-          poster_token: restaurant.posterToken,
+          poster_token: encrypt(restaurant.posterToken),
           name: restaurant.name,
         },
         { onConflict: 'poster_account_number' },

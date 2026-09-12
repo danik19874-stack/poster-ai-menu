@@ -8,6 +8,10 @@ import {
   MENU_RECOMMENDATION_SCHEMA,
 } from '@/lib/ai/menuRecommendation';
 import type { CartLine, MenuItemSummary } from '@/lib/ai/menuRecommendation';
+import { decrypt } from '@/lib/crypto/secretBox';
+import { isRateLimited } from '@/lib/ai/rateLimiter';
+
+const RATE_LIMITED_MESSAGE = 'Слишком много вопросов подряд — подождите немного и попробуйте снова.';
 
 const SERVICE_OVERLOADED_MESSAGE =
   'Сейчас сервис перегружен, попробуйте через минуту или уточните у официанта.';
@@ -49,6 +53,10 @@ export async function POST(request: NextRequest) {
 
   if (!restaurant) {
     return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+  }
+
+  if (await isRateLimited({ countRecentActivity: (id, since) => countRecentAiQueries(supabase, id, since) }, restaurantId)) {
+    return NextResponse.json({ answer: RATE_LIMITED_MESSAGE }, { status: 429 });
   }
 
   const menuItems: MenuItemSummary[] = (items ?? []).map((item) => ({
@@ -102,6 +110,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function countRecentAiQueries(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  restaurantId: string,
+  sinceIso: string,
+): Promise<number> {
+  const { count } = await supabase
+    .from('activity_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', restaurantId)
+    .eq('kind', 'ai_query')
+    .gte('created_at', sinceIso);
+
+  return count ?? 0;
+}
+
 async function getActiveGeminiKeys(
   supabase: ReturnType<typeof getSupabaseServerClient>,
 ): Promise<GeminiKey[]> {
@@ -114,7 +137,7 @@ async function getActiveGeminiKeys(
 
   return (data ?? []).map((k) => ({
     id: k.id,
-    apiKey: k.api_key,
+    apiKey: decrypt(k.api_key),
     model: k.model,
     dailyLimit: k.daily_limit,
     requestsToday: k.requests_today,

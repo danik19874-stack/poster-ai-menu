@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -15,7 +15,13 @@ function sign(payload: string): string {
 }
 
 export function checkPassword(candidate: string): boolean {
-  return candidate === getPassword();
+  // Hash both sides to a fixed-length digest before comparing: timingSafeEqual
+  // requires equal-length buffers, and comparing raw strings of different
+  // lengths directly would leak the real password's length via an early
+  // return (or a thrown RangeError) that a shorter/longer guess triggers.
+  const expected = createHash('sha256').update(getPassword()).digest();
+  const actual = createHash('sha256').update(candidate).digest();
+  return timingSafeEqual(expected, actual);
 }
 
 export function createSessionToken(): string {

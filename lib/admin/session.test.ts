@@ -18,6 +18,18 @@ describe('admin session', () => {
     it('rejects an incorrect password', () => {
       expect(checkPassword('wrong')).toBe(false);
     });
+
+    it('rejects a candidate shorter than the real password without throwing', () => {
+      expect(checkPassword('x')).toBe(false);
+    });
+
+    it('rejects a candidate longer than the real password without throwing', () => {
+      expect(checkPassword('correct-horse-battery-staple-and-then-some-more')).toBe(false);
+    });
+
+    it('rejects an empty candidate', () => {
+      expect(checkPassword('')).toBe(false);
+    });
   });
 
   describe('createSessionToken / verifySessionToken', () => {

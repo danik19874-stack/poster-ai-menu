@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { syncMenu } from '@/lib/menu/sync';
 import { getProducts, getProductIngredients } from '@/lib/poster/client';
+import { decrypt } from '@/lib/crypto/secretBox';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await syncMenu(
         supabase,
         { getProducts, getProductIngredients },
-        { restaurantId: id, posterToken: restaurant.poster_token },
+        { restaurantId: id, posterToken: decrypt(restaurant.poster_token) },
       );
     } catch (err) {
       console.error(`Manual menu sync failed for restaurant ${id}:`, err);

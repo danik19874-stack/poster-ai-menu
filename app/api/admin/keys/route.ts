@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { GEMINI_MODEL_CHAIN } from '@/lib/gemini/models';
+import { encrypt } from '@/lib/crypto/secretBox';
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -12,6 +13,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseServerClient();
+  const encryptedApiKey = encrypt(apiKey);
   // One real Gemini key is metered separately per model on Google's side, so a
   // single "add key" submission becomes one row per model in the fallback chain —
   // see lib/gemini/models.ts. The daily_limit field was removed from the form
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
   await supabase.from('gemini_api_keys').insert(
     GEMINI_MODEL_CHAIN.map((tier) => ({
       label,
-      api_key: apiKey,
+      api_key: encryptedApiKey,
       model: tier.model,
       daily_limit: tier.dailyLimit,
       priority: tier.priority,
